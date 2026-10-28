@@ -23,6 +23,7 @@ yarn-error.log
 /.zed
 /.claude/
 
-# aaPanel creates these in the site root
+# aaPanel creates these in the site root / running directory
 /.user.ini
 /.htaccess
+/public/.user.ini

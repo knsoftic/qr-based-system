@@ -32,8 +32,9 @@ echo "==> PHP version"
 "$PHP" -v | head -1
 
 echo "==> Checking PHP extensions"
-for ext in bcmath fileinfo gd mbstring openssl pdo_mysql; do
-    "$PHP" -m | grep -qi "^${ext}$" || { echo "ERROR: PHP extension '${ext}' is missing"; exit 1; }
+MODULES="$("$PHP" -m)"
+for ext in bcmath ctype curl fileinfo gd mbstring openssl pdo_mysql tokenizer; do
+    grep -qix "$ext" <<<"$MODULES" || { echo "ERROR: PHP extension '${ext}' is missing"; exit 1; }
 done
 
 echo "==> Composer install (production)"
@@ -52,7 +53,8 @@ echo "==> Caches"
 "$PHP" artisan view:cache
 
 echo "==> Permissions"
-chown -R www:www "$APP_DIR"
+# aaPanel locks .user.ini with chattr +i, so chown reports it; everything else is changed.
+chown -R www:www "$APP_DIR" 2>/dev/null || true
 find storage bootstrap/cache -type d -exec chmod 775 {} +
 find storage bootstrap/cache -type f -exec chmod 664 {} +
 chmod 640 .env
@@ -60,7 +62,9 @@ chmod 640 .env
 echo "==> Scheduler cron job"
 PHP_BIN="$PHP" APP_DIR="$APP_DIR" bash "$APP_DIR/deploy/cron.sh"
 
-echo
-echo "Done. Next steps:"
-echo "  1) Create the admin:  $PHP artisan gateway:create-admin admin@pkpay.site"
-echo "  2) Open https://pkpay.site/admin"
+if [ -z "${SKIP_NEXT_STEPS:-}" ]; then
+    echo
+    echo "Done. Next steps:"
+    echo "  1) Create the admin:  $PHP artisan gateway:create-admin admin@pkpay.site"
+    echo "  2) Open https://pkpay.site/admin"
+fi

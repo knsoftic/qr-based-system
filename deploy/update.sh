@@ -16,7 +16,8 @@ git config --global --get-all safe.directory | grep -qx "$APP_DIR" || git config
 
 "$PHP" artisan down --retry=15 || true
 # Always bring the site back up, even if a step below fails.
-trap '"$PHP" artisan up; chown -R www:www "$APP_DIR"' EXIT
+# (chown skips aaPanel's locked .user.ini silently.)
+trap '"$PHP" artisan up; chown -R www:www "$APP_DIR" 2>/dev/null || true' EXIT
 
 git pull --ff-only origin main
 "$PHP" "$COMPOSER" install --no-dev --optimize-autoloader --no-interaction

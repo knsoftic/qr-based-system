@@ -68,10 +68,19 @@ php artisan schedule:work            # development
 
 ## Production deployment (aaPanel)
 
+**One command** (after adding the site + SSL in aaPanel). It installs on the first run and updates on every run after that:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/knsoftic/qr-based-system/main/deploy/aapanel-deploy.sh)
+```
+
+It checks and fixes PHP, installs git and composer, fetches the code, creates the database and user, writes `.env`, runs migrations and caches, creates the first admin with a random password (printed once and saved to `/root/pkpay.site-credentials.txt`), sets `/public` and the URL rewrite, adds the cron job, and runs a health check.
+
 Ready-made files for **https://pkpay.site** at `/www/wwwroot/pkpay.site`:
 
 | File | Purpose |
 |---|---|
+| [`deploy/aapanel-deploy.sh`](deploy/aapanel-deploy.sh) | The one-command deploy above (install + update) |
 | [`.env.production.example`](.env.production.example) | Production `.env` template (`APP_DEBUG=false`, https, secure cookies) |
 | [`deploy/aapanel-nginx-rewrite.conf`](deploy/aapanel-nginx-rewrite.conf) | aaPanel URL rewrite rule (same as the built-in `laravel5`) |
 | [`deploy/install.sh`](deploy/install.sh) | First install: extension check, composer, key, migrate, caches, permissions, cron job |

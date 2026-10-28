@@ -42,10 +42,20 @@ Artisan::command('payments:retry-callbacks', function (CallbackDispatcher $dispa
     $this->info("Retried {$sent} callback(s).");
 })->purpose('Retry failed merchant callbacks with backoff');
 
-Artisan::command('gateway:create-admin {email} {--name=Administrator}', function (string $email) {
-    $password = $this->secret('Password (min 10 characters)');
+Artisan::command('gateway:create-admin {email} {--name=Administrator}
+    {--password-env= : Read the password from this environment variable instead of prompting (for deploy scripts)}
+    {--if-none : Do nothing (exit code 3) when an admin already exists}', function (string $email) {
+    if ($this->option('if-none') && User::query()->exists()) {
+        $this->info('An admin already exists; nothing changed.');
 
-    if (strlen((string) $password) < 10) {
+        return 3;
+    }
+
+    $password = $this->option('password-env')
+        ? (string) getenv($this->option('password-env'))
+        : (string) $this->secret('Password (min 10 characters)');
+
+    if (strlen($password) < 10) {
         $this->error('Password must be at least 10 characters.');
 
         return 1;
