@@ -35,6 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
 
+        // Expected business errors (bad signature, no account, ...) are returned to the client, not logged.
+        $exceptions->dontReport(GatewayException::class);
+
         $exceptions->render(function (GatewayException $e) {
             return response()->json(['error' => ['code' => $e->errorCode, 'message' => $e->getMessage()]], $e->status);
         });
