@@ -196,10 +196,15 @@ class AdminPanelTest extends TestCase
         $this->createPayment($merchant, $secret)->assertCreated();
         $payment = Payment::query()->firstOrFail();
 
+        $expiresAt = $payment->expires_at->toDateTimeString();
+        $this->travel(1)->minutes();
+
         $this->post(route('admin.transactions.paid', $payment), ['reference' => 'BANK-99'])->assertSessionHas('success');
 
         $payment->refresh();
         $this->assertSame(PaymentStatus::Paid, $payment->status);
+        // Regression: updating a payment must never move its expiry time.
+        $this->assertSame($expiresAt, $payment->expires_at->toDateTimeString());
         $this->assertSame("admin:{$admin->id}", $payment->verified_by);
         $this->assertDatabaseHas('audit_logs', ['action' => 'payment.marked_paid', 'auditable_id' => $payment->id]);
 

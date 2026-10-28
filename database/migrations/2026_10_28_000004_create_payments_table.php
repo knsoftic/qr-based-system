@@ -36,7 +36,9 @@ return new class extends Migration
             // admin:{id} | api | system
             $table->string('verified_by', 32)->nullable();
             $table->string('client_ip', 45)->nullable();
-            $table->timestamp('expires_at');
+            // DATETIME on purpose: a NOT NULL TIMESTAMP gets an implicit
+            // ON UPDATE CURRENT_TIMESTAMP on MySQL/MariaDB and would be overwritten.
+            $table->dateTime('expires_at');
             $table->timestamp('paid_at')->nullable();
             $table->timestamp('callback_sent_at')->nullable();
             $table->timestamps();
