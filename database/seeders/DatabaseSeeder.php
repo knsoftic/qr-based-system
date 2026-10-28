@@ -11,11 +11,12 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database with the first admin user, taken from
-     * ADMIN_NAME / ADMIN_EMAIL / ADMIN_PASSWORD in .env.
+     * ADMIN_NAME / ADMIN_EMAIL / ADMIN_PASSWORD in .env (via config, so it
+     * also works after `php artisan config:cache`).
      */
     public function run(): void
     {
-        $email = strtolower((string) env('ADMIN_EMAIL', 'admin@example.com'));
+        $email = strtolower((string) config('gateway.admin.email'));
 
         if (User::query()->where('email', $email)->exists()) {
             $this->command?->info("Admin {$email} already exists.");
@@ -23,7 +24,7 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
-        $password = (string) env('ADMIN_PASSWORD');
+        $password = (string) config('gateway.admin.password');
         $generated = $password === '';
 
         if ($generated) {
@@ -31,7 +32,7 @@ class DatabaseSeeder extends Seeder
         }
 
         User::query()->create([
-            'name' => env('ADMIN_NAME', 'Super Admin'),
+            'name' => config('gateway.admin.name'),
             'email' => $email,
             'password' => $password,
             'is_active' => true,

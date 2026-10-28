@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Payments\Providers\ProviderRegistry;
 use App\Support\Settings;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,6 +29,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::defaultView('partials.pagination');
+
+        // Behind Cloudflare / a load balancer: trust its forwarded IP and scheme.
+        if ($proxies = config('gateway.trusted_proxies')) {
+            TrustProxies::at($proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
+        }
+
+        // Generated links (checkout_url, callbacks, redirects) always use https in production.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
 
         RateLimiter::for('merchant-api', function (Request $request) {
             $perMinute = max(1, (int) app(Settings::class)->get('api.rate_limit', 60));

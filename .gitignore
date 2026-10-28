@@ -22,3 +22,7 @@ yarn-error.log
 /.vscode
 /.zed
 /.claude/
+
+# aaPanel creates these in the site root
+/.user.ini
+/.htaccess

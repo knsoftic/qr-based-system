@@ -64,6 +64,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Deployment
+    |--------------------------------------------------------------------------
+    |
+    | trusted_proxies: set to "*" (or a comma separated IP list) only when the
+    | site sits behind Cloudflare / a load balancer, so client IPs and HTTPS
+    | are detected correctly.
+    |
+    | admin: first admin created by `php artisan db:seed`. Prefer
+    | `php artisan gateway:create-admin` in production and keep
+    | ADMIN_PASSWORD empty.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    'admin' => [
+        'name' => env('ADMIN_NAME', 'Super Admin'),
+        'email' => env('ADMIN_EMAIL', 'admin@example.com'),
+        'password' => env('ADMIN_PASSWORD'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | QR providers
     |--------------------------------------------------------------------------
     |
