@@ -66,6 +66,19 @@ php artisan schedule:work            # development
 
 > **Important:** `APP_KEY` encrypts merchant secrets and QR payloads. Back it up. If you change it, that data can no longer be decrypted.
 
+## Production deployment (aaPanel)
+
+Ready-made files for **https://pkpay.site** at `/www/wwwroot/pkpay.site`:
+
+| File | Purpose |
+|---|---|
+| [`.env.production.example`](.env.production.example) | Production `.env` template (`APP_DEBUG=false`, https, secure cookies) |
+| [`deploy/aapanel-nginx-rewrite.conf`](deploy/aapanel-nginx-rewrite.conf) | aaPanel URL rewrite rule (same as the built-in `laravel5`) |
+| [`deploy/install.sh`](deploy/install.sh) | First install: extension check, composer, key, migrate, caches, permissions |
+| [`deploy/update.sh`](deploy/update.sh) | Later updates: maintenance mode, `git pull`, composer, migrate, caches |
+
+In short: set the site's running directory to `/public`, enable `putenv` / `proc_open` in PHP, install `fileinfo`, clone the repo, `cp .env.production.example .env`, run `bash deploy/install.sh`, create the admin with `php artisan gateway:create-admin`, then add a cron job every minute that runs `php artisan schedule:run`.
+
 ## Using it
 
 1. **Admin → Payment Accounts → Add account**: choose a provider, upload the authorized QR. The decode status shows *Decoded*, *Unsupported* or *Failed*.
