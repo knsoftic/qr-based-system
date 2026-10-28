@@ -44,9 +44,18 @@ class Merchant extends Model
      */
     public function issueCredentials(): string
     {
+        $this->api_key = 'pk_'.Str::lower(Str::random(32));
+
+        return $this->rotateSecret();
+    }
+
+    /**
+     * Replace only the secret; the API key stays the same.
+     */
+    public function rotateSecret(): string
+    {
         $secret = 'sk_'.Str::random(48);
 
-        $this->api_key = 'pk_'.Str::lower(Str::random(32));
         $this->api_secret = $secret;
         $this->secret_rotated_at = now();
 
