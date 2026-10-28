@@ -59,5 +59,7 @@ Artisan::command('gateway:create-admin {email} {--name=Administrator}', function
     $this->info("Admin {$email} is ready. Sign in at ".route('admin.login'));
 })->purpose('Create or reset an admin user');
 
-Schedule::command('payments:expire')->everyMinute()->withoutOverlapping();
-Schedule::command('payments:retry-callbacks')->everyFiveMinutes()->withoutOverlapping();
+// onOneServer(): if schedule:run is triggered twice in the same minute (e.g. an
+// aaPanel cron task and a crontab entry), each task still runs only once.
+Schedule::command('payments:expire')->everyMinute()->withoutOverlapping()->onOneServer();
+Schedule::command('payments:retry-callbacks')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
