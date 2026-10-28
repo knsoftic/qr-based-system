@@ -64,6 +64,10 @@ class PaymentAccount extends Model
 
     public function providerName(): string
     {
+        if ($this->provider === \App\Payments\Providers\ProviderRegistry::AUTO) {
+            return 'Auto-detect (not recognised)';
+        }
+
         return config("gateway.providers.{$this->provider}.name", $this->provider);
     }
 }

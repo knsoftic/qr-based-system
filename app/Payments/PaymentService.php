@@ -53,6 +53,7 @@ class PaymentService
                 $account = $this->router->select($amount) ?? throw GatewayException::noAccountAvailable();
                 $transactionId = $this->newTransactionId();
                 $fees = $this->fees->payIn($merchant, $amount);
+                $expiresAt = now()->addSeconds((int) $this->settings->get('payin.expiry_seconds'));
 
                 $payment = Payment::query()->create([
                     'payment_id' => 'pay_'.Str::lower((string) Str::ulid()),
@@ -65,7 +66,7 @@ class PaymentService
                     'fee_amount' => $fees['fee'],
                     'net_amount' => $fees['net'],
                     'status' => PaymentStatus::Pending,
-                    'qr_payload' => $this->providers->make($account->provider)->build($account->payload_template, $amount, $transactionId),
+                    'qr_payload' => $this->providers->make($account->provider)->build($account->payload_template, $amount, $transactionId, $expiresAt),
                     'description' => $data['description'] ?? null,
                     'customer_name' => $data['customer']['name'] ?? null,
                     'customer_email' => $data['customer']['email'] ?? null,
@@ -76,7 +77,7 @@ class PaymentService
                     'idempotency_key' => $idempotencyKey,
                     'request_hash' => $requestHash,
                     'client_ip' => $ip,
-                    'expires_at' => now()->addSeconds((int) $this->settings->get('payin.expiry_seconds')),
+                    'expires_at' => $expiresAt,
                 ]);
 
                 $this->log($payment, 'created', null, PaymentStatus::Pending, 'api', [

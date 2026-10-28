@@ -7,6 +7,11 @@ use InvalidArgumentException;
 class ProviderRegistry
 {
     /**
+     * Pseudo provider for uploads: try every adapter, keep the first that verifies.
+     */
+    public const AUTO = 'auto';
+
+    /**
      * @return array<string, string> provider key => display name
      */
     public function options(): array

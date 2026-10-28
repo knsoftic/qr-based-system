@@ -6,6 +6,7 @@ use App\Enums\DecodeStatus;
 use App\Models\PaymentAccount;
 use App\Payments\Exceptions\QrDecodeException;
 use App\Payments\Exceptions\UnsupportedPayloadException;
+use App\Payments\Providers\ParsedPayload;
 use App\Payments\Providers\ProviderRegistry;
 use App\Payments\Qr\QrDecoder;
 use Illuminate\Http\UploadedFile;
@@ -52,9 +53,10 @@ class AccountQrProcessor
                 throw new UnsupportedPayloadException("This QR is already registered on account \"{$duplicate->name}\".");
             }
 
-            $parsed = $this->providers->make($account->provider)->inspect($payload);
+            [$provider, $parsed] = $this->inspect($account->provider, $payload);
 
             $account->forceFill([
+                'provider' => $provider,
                 'decode_status' => DecodeStatus::Decoded,
                 'decode_error' => null,
                 'raw_payload' => $payload,
@@ -72,6 +74,30 @@ class AccountQrProcessor
         $account->save();
 
         return $account;
+    }
+
+    /**
+     * One named provider, or (auto) every provider in config order until one verifies.
+     *
+     * @return array{0: string, 1: ParsedPayload}
+     */
+    private function inspect(string $provider, string $payload): array
+    {
+        if ($provider !== ProviderRegistry::AUTO) {
+            return [$provider, $this->providers->make($provider)->inspect($payload)];
+        }
+
+        $reasons = [];
+
+        foreach ($this->providers->options() as $key => $name) {
+            try {
+                return [$key, $this->providers->make($key)->inspect($payload)];
+            } catch (UnsupportedPayloadException $e) {
+                $reasons[] = "{$name}: {$e->getMessage()}";
+            }
+        }
+
+        throw new UnsupportedPayloadException('No supported QR format recognised this payload. '.implode(' | ', $reasons));
     }
 
     private function markFailed(PaymentAccount $account, DecodeStatus $status, string $error): void

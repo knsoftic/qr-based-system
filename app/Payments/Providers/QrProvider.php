@@ -3,6 +3,7 @@
 namespace App\Payments\Providers;
 
 use App\Payments\Exceptions\UnsupportedPayloadException;
+use DateTimeInterface;
 
 /**
  * Isolated adapter for one QR payload specification. All payload reading and
@@ -23,7 +24,8 @@ interface QrProvider
 
     /**
      * Build a dynamic payload from a stored template, changing only the fields
-     * the specification allows (amount, reference, initiation method, checksum).
+     * the specification allows (amount, reference, expiry, initiation method,
+     * checksum). $expiresAt is used by formats that carry an expiry field.
      */
-    public function build(array $template, string $amount, string $reference): string;
+    public function build(array $template, string $amount, string $reference, ?DateTimeInterface $expiresAt = null): string;
 }

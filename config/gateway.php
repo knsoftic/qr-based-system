@@ -97,14 +97,23 @@ return [
     | "rules" narrow a generic adapter to a specific scheme. Only add rules
     | that come from the provider's official specification.
     |
+    | Order matters for "Auto-detect": the first adapter that verifies the
+    | QR wins, so the most specific ones come first.
+    |
     */
 
     'providers' => [
 
-        'emvco' => [
-            'name' => 'EMVCo Merchant QR (generic)',
-            'adapter' => App\Payments\Providers\EmvcoMpmProvider::class,
-            'rules' => [],
+        'raast_p2p' => [
+            'name' => 'Raast P2P QR (IBAN: easypaisa, JazzCash, banks)',
+            'adapter' => App\Payments\Providers\RaastP2pProvider::class,
+            'rules' => [
+                // Tag 07 expiry is written in this time zone.
+                'timezone' => 'Asia/Karachi',
+                // Also write the transaction ID into tag 06 (particulars). Off
+                // until confirmed that the banking apps accept it.
+                'particulars_reference' => false,
+            ],
         ],
 
         'raast' => [
@@ -114,6 +123,12 @@ return [
                 'country_code' => 'PK',
                 'currency_numeric' => '586',
             ],
+        ],
+
+        'emvco' => [
+            'name' => 'EMVCo Merchant QR (generic)',
+            'adapter' => App\Payments\Providers\EmvcoMpmProvider::class,
+            'rules' => [],
         ],
 
     ],

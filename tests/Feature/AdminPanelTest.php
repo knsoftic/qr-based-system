@@ -135,6 +135,60 @@ class AdminPanelTest extends TestCase
         $this->assertFalse($account->fresh()->is_active);
     }
 
+    public function test_auto_detect_recognises_a_raast_p2p_qr(): void
+    {
+        Storage::fake('local');
+        $this->actingAs($this->makeAdmin());
+
+        $this->post(route('admin.accounts.store'), [
+            'name' => 'easypaisa',
+            'provider' => 'auto',
+            'activate' => 1,
+            'qr_image' => $this->qrUpload($this->p2pPayload()),
+        ])->assertSessionHas('success');
+
+        $account = PaymentAccount::query()->firstOrFail();
+        $this->assertSame('raast_p2p', $account->provider);
+        $this->assertSame(DecodeStatus::Decoded, $account->decode_status);
+        $this->assertTrue($account->is_active);
+
+        $this->get(route('admin.accounts.show', $account))
+            ->assertSee('Raast P2P')
+            ->assertSee('TMFB')
+            ->assertDontSee('1234567890');
+    }
+
+    public function test_auto_detect_picks_the_most_specific_merchant_format(): void
+    {
+        Storage::fake('local');
+        $this->actingAs($this->makeAdmin());
+
+        $this->post(route('admin.accounts.store'), [
+            'name' => 'Shop',
+            'provider' => 'auto',
+            'qr_image' => $this->qrUpload(DemoSeeder::samplePayload()),
+        ]);
+
+        $this->assertSame('raast', PaymentAccount::query()->firstOrFail()->provider);
+    }
+
+    public function test_auto_detect_reports_why_every_format_rejected_a_qr(): void
+    {
+        Storage::fake('local');
+        $this->actingAs($this->makeAdmin());
+
+        $this->post(route('admin.accounts.store'), [
+            'name' => 'Link',
+            'provider' => 'auto',
+            'qr_image' => $this->qrUpload('https://example.com/pay'),
+        ]);
+
+        $account = PaymentAccount::query()->firstOrFail();
+        $this->assertSame(DecodeStatus::Unsupported, $account->decode_status);
+        $this->assertStringContainsString('Raast P2P', $account->decode_error);
+        $this->assertStringContainsString('EMVCo', $account->decode_error);
+    }
+
     public function test_an_image_without_a_qr_fails_to_decode(): void
     {
         Storage::fake('local');

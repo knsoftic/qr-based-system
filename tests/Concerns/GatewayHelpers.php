@@ -6,7 +6,10 @@ use App\Enums\DecodeStatus;
 use App\Models\Merchant;
 use App\Models\PaymentAccount;
 use App\Models\User;
+use App\Payments\Emv\Crc16;
+use App\Payments\Emv\Tlv;
 use App\Payments\Providers\ProviderRegistry;
+use App\Payments\Raast\Iban;
 use App\Payments\Qr\QrRenderer;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Http\UploadedFile;
@@ -39,6 +42,51 @@ trait GatewayHelpers
         $account = new PaymentAccount($attributes + ['name' => 'Account '.$accountNumber, 'provider' => 'raast', 'priority' => 100]);
         $account->forceFill([
             'is_active' => $attributes['is_active'] ?? true,
+            'decode_status' => DecodeStatus::Decoded,
+            'raw_payload' => $payload,
+            'payload_template' => $parsed->template,
+            'payload_hash' => hash('sha256', $payload),
+            'payload_summary' => $parsed->summary,
+            'decoded_at' => now(),
+        ])->save();
+
+        return $account;
+    }
+
+    /**
+     * Raast P2P payload in the same layout easypaisa issues, with a fake (but
+     * checksum-valid) IBAN.
+     */
+    protected function p2pPayload(string $bban = 'TMFB0000001234567890', ?string $amount = '100', ?string $expiry = '221120262043', array $extra = []): string
+    {
+        $items = [
+            ['id' => '00', 'value' => '02'],
+            ['id' => '01', 'value' => $amount === null ? '11' : '12'],
+            ['id' => '02', 'value' => '00'],
+            ['id' => '04', 'value' => Iban::make($bban)],
+        ];
+
+        if ($amount !== null) {
+            $items[] = ['id' => '05', 'value' => $amount];
+        }
+        if ($expiry !== null) {
+            $items[] = ['id' => '07', 'value' => $expiry];
+        }
+        foreach ($extra as $id => $value) {
+            $items = Tlv::put($items, (string) $id, $value);
+        }
+
+        return Crc16::seal(Tlv::encode($items), '10');
+    }
+
+    protected function makeP2pAccount(string $bban = 'TMFB0000001234567890'): PaymentAccount
+    {
+        $payload = $this->p2pPayload($bban);
+        $parsed = app(ProviderRegistry::class)->make('raast_p2p')->inspect($payload);
+
+        $account = new PaymentAccount(['name' => 'P2P '.$bban, 'provider' => 'raast_p2p', 'priority' => 100]);
+        $account->forceFill([
+            'is_active' => true,
             'decode_status' => DecodeStatus::Decoded,
             'raw_payload' => $payload,
             'payload_template' => $parsed->template,

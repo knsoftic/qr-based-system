@@ -35,12 +35,9 @@
             <div class="card-body">
                 @if ($account->isDecoded())
                     <dl class="kv">
-                        <dt>Format</dt><dd>{{ $summary['format'] ?? '—' }}</dd>
-                        <dt>Original QR type</dt><dd>{{ ucfirst($summary['initiation'] ?? '—') }}</dd>
-                        <dt>Merchant name</dt><dd>{{ $summary['merchant_name'] ?? '—' }}</dd>
-                        <dt>City / country</dt><dd>{{ $summary['merchant_city'] ?? '—' }}, {{ $summary['country'] ?? '—' }}</dd>
-                        <dt>Currency (ISO 4217)</dt><dd>{{ $summary['currency'] ?? '—' }}</dd>
-                        <dt>Category code</dt><dd>{{ $summary['mcc'] ?? '—' }}</dd>
+                        @foreach ($summary['details'] ?? ['Format' => $summary['format'] ?? '—'] as $label => $value)
+                            <dt>{{ $label }}</dt><dd>{{ $value }}</dd>
+                        @endforeach
                         <dt>Checksum</dt><dd><span class="badge badge--success">CRC {{ $summary['checksum'] ?? '' }}</span></dd>
                         <dt>Decoded at</dt><dd>{{ $account->decoded_at?->format('d M Y, H:i') }}</dd>
                     </dl>
@@ -86,8 +83,9 @@
                         <div class="form-row">
                             <label for="provider">Provider</label>
                             <select id="provider" name="provider">
+                                <option value="auto" @selected(! $account->isDecoded())>Auto-detect (recommended)</option>
                                 @foreach ($providers as $key => $name)
-                                    <option value="{{ $key }}" @selected($account->provider === $key)>{{ $name }}</option>
+                                    <option value="{{ $key }}" @selected($account->isDecoded() && $account->provider === $key)>{{ $name }}</option>
                                 @endforeach
                             </select>
                         </div>

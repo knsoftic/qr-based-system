@@ -5,6 +5,7 @@ namespace App\Payments\Providers;
 use App\Payments\Emv\Crc16;
 use App\Payments\Emv\Tlv;
 use App\Payments\Exceptions\UnsupportedPayloadException;
+use DateTimeInterface;
 
 /**
  * EMVCo QR Code Specification for Payment Systems, Merchant Presented Mode.
@@ -108,7 +109,8 @@ class EmvcoMpmProvider implements QrProvider
         );
     }
 
-    public function build(array $template, string $amount, string $reference): string
+    // EMVCo MPM has no expiry data object, so $expiresAt is not written.
+    public function build(array $template, string $amount, string $reference, ?DateTimeInterface $expiresAt = null): string
     {
         if (! $this->isValidAmount($amount)) {
             throw new UnsupportedPayloadException("Invalid amount \"{$amount}\".");
@@ -192,6 +194,15 @@ class EmvcoMpmProvider implements QrProvider
     {
         return [
             'format' => 'EMVCo Merchant Presented Mode',
+            'label' => Tlv::find($items, '59'),
+            'details' => [
+                'Format' => 'EMVCo Merchant Presented Mode',
+                'Original QR type' => Tlv::find($items, '01') === '12' ? 'Dynamic' : 'Static',
+                'Merchant name' => Tlv::find($items, '59'),
+                'City / country' => Tlv::find($items, '60').', '.Tlv::find($items, '58'),
+                'Currency (ISO 4217)' => Tlv::find($items, '53'),
+                'Category code' => Tlv::find($items, '52'),
+            ],
             'initiation' => Tlv::find($items, '01') === '12' ? 'dynamic' : 'static',
             'merchant_name' => Tlv::find($items, '59'),
             'merchant_city' => Tlv::find($items, '60'),

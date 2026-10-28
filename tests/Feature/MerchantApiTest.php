@@ -42,6 +42,28 @@ class MerchantApiTest extends TestCase
         $this->assertStringNotContainsString('qr_payload', $response->getContent());
     }
 
+    public function test_a_raast_p2p_account_gets_amount_and_expiry_in_its_dynamic_qr(): void
+    {
+        [$merchant, $secret] = $this->makeMerchant();
+        $account = $this->makeP2pAccount();
+
+        $this->createPayment($merchant, $secret, ['amount' => 2500, 'order_id' => 'P2P-1'])->assertCreated();
+
+        $payment = Payment::query()->firstOrFail();
+        $items = Tlv::parse($payment->qr_payload);
+        $expected = $payment->expires_at->copy()->setTimezone('Asia/Karachi');
+        if ($expected->second > 0) {
+            $expected = $expected->addMinute()->startOfMinute();
+        }
+
+        $this->assertSame($account->id, $payment->payment_account_id);
+        $this->assertTrue(Crc16::isValid($payment->qr_payload, '10'));
+        $this->assertSame('12', Tlv::find($items, '01'));
+        $this->assertSame('2500', Tlv::find($items, '05'));
+        $this->assertSame($expected->format('dmYHi'), Tlv::find($items, '07'));
+        $this->assertSame(Tlv::find(Tlv::parse($account->raw_payload), '04'), Tlv::find($items, '04'));
+    }
+
     public function test_an_invalid_signature_is_rejected(): void
     {
         [$merchant] = $this->makeMerchant();

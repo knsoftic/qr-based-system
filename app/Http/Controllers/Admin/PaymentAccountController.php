@@ -50,7 +50,7 @@ class PaymentAccountController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'provider' => ['required', Rule::in(array_keys($this->providers->options()))],
+            'provider' => ['required', Rule::in([ProviderRegistry::AUTO, ...array_keys($this->providers->options())])],
             'priority' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'daily_limit' => ['nullable', 'numeric', 'min:0'],
             'qr_image' => self::IMAGE_RULES,
@@ -111,7 +111,7 @@ class PaymentAccountController extends Controller
     public function uploadQr(Request $request, PaymentAccount $account): RedirectResponse
     {
         $data = $request->validate([
-            'provider' => ['required', Rule::in(array_keys($this->providers->options()))],
+            'provider' => ['required', Rule::in([ProviderRegistry::AUTO, ...array_keys($this->providers->options())])],
             'qr_image' => self::IMAGE_RULES,
         ]);
 

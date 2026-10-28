@@ -35,7 +35,7 @@
                         <td>
                             <a href="{{ route('admin.accounts.show', $account) }}"><strong>{{ $account->name }}</strong></a>
                             @if ($account->payload_summary)
-                                <div class="muted" style="font-size: .8rem">{{ $account->payload_summary['merchant_name'] ?? '' }}</div>
+                                <div class="muted" style="font-size: .8rem">{{ $account->payload_summary['label'] ?? $account->payload_summary['merchant_name'] ?? '' }}</div>
                             @endif
                         </td>
                         <td>{{ $account->providerName() }}</td>

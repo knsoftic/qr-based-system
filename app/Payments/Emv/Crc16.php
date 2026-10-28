@@ -4,7 +4,8 @@ namespace App\Payments\Emv;
 
 /**
  * CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF), as required by EMVCo
- * Merchant Presented Mode for data object "63".
+ * Merchant Presented Mode (data object "63") and the SBP Raast P2P QR
+ * standard (data object "10").
  */
 final class Crc16
 {
@@ -26,21 +27,21 @@ final class Crc16
     }
 
     /**
-     * Append "6304" + checksum to a payload that has no CRC yet.
+     * Append "<tag>04" + checksum to a payload that has no CRC yet.
      */
-    public static function seal(string $payloadWithoutCrc): string
+    public static function seal(string $payloadWithoutCrc, string $tag = '63'): string
     {
-        $data = $payloadWithoutCrc.'6304';
+        $data = $payloadWithoutCrc.$tag.'04';
 
         return $data.self::checksum($data);
     }
 
     /**
-     * True when the payload ends with a "63" data object holding the correct checksum.
+     * True when the payload ends with a "<tag>" data object holding the correct checksum.
      */
-    public static function isValid(string $payload): bool
+    public static function isValid(string $payload, string $tag = '63'): bool
     {
-        if (strlen($payload) < 8 || substr($payload, -8, 4) !== '6304') {
+        if (strlen($payload) < 8 || substr($payload, -8, 4) !== $tag.'04') {
             return false;
         }
 

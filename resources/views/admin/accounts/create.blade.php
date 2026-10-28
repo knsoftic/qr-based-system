@@ -24,10 +24,12 @@
                     <div class="form-row">
                         <label for="provider">Provider</label>
                         <select id="provider" name="provider" required>
+                            <option value="auto" @selected(old('provider', 'auto') === 'auto')>Auto-detect (recommended)</option>
                             @foreach ($providers as $key => $name)
                                 <option value="{{ $key }}" @selected(old('provider') === $key)>{{ $name }}</option>
                             @endforeach
                         </select>
+                        <div class="hint">Auto-detect tries every supported format and keeps the one that verifies.</div>
                     </div>
 
                     <div class="form-row">
