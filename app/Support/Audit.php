@@ -22,12 +22,16 @@ class Audit
         'verification.key_hash',
     ];
 
-    public static function log(string $action, ?Model $subject = null, array $old = [], array $new = []): AuditLog
+    /**
+     * $byAdmin = false for actions a merchant takes in the portal, so they are
+     * never attributed to an admin signed in on the same browser.
+     */
+    public static function log(string $action, ?Model $subject = null, array $old = [], array $new = [], bool $byAdmin = true): AuditLog
     {
         $request = request();
 
         return AuditLog::query()->create([
-            'user_id' => auth()->id(),
+            'user_id' => $byAdmin ? auth('web')->id() : null,
             'action' => $action,
             'auditable_type' => $subject?->getMorphClass(),
             'auditable_id' => $subject?->getKey(),

@@ -37,3 +37,32 @@
 <div class="form-row">
     <label class="checkbox"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $merchant->is_active))> Active (API key accepted)</label>
 </div>
+
+<fieldset class="fieldset">
+    <legend>Merchant portal login</legend>
+    <p class="hint mt-0">The merchant signs in at <span class="mono">{{ route('merchant.login') }}</span> to see its Merchant ID and API credentials, check its integration and run a test Pay-In.</p>
+
+    <div class="form-row">
+        <label class="checkbox"><input type="checkbox" name="portal_enabled" value="1" @checked(old('portal_enabled', $merchant->portal_enabled))> Portal login enabled</label>
+    </div>
+
+    <div class="grid grid-2">
+        <div class="form-row">
+            <label for="username">Username</label>
+            <input id="username" type="text" name="username" value="{{ old('username', $merchant->username) }}" maxlength="50" autocomplete="off" placeholder="e.g. demostore">
+            <div class="hint">Letters, digits, . _ - (3-50 characters).</div>
+        </div>
+        <div class="form-row">
+            <label for="portal_password">Password</label>
+            <input id="portal_password" type="password" name="portal_password" autocomplete="new-password">
+            <div class="hint">
+                @if ($merchant->exists && $merchant->password)
+                    Leave empty to keep the current password.
+                @else
+                    Leave empty to generate one (shown once).
+                @endif
+                Min 10 characters with letters and numbers.
+            </div>
+        </div>
+    </div>
+</fieldset>

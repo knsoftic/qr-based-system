@@ -20,8 +20,9 @@ return [
 
     'currency' => env('GATEWAY_CURRENCY', 'PKR'),
 
-    // round_robin | priority | random
-    'routing_strategy' => env('GATEWAY_ROUTING_STRATEGY', 'round_robin'),
+    // random | round_robin | priority. Random for now: every new payment
+    // picks one of the active accounts at random.
+    'routing_strategy' => env('GATEWAY_ROUTING_STRATEGY', 'random'),
 
     /*
     |--------------------------------------------------------------------------

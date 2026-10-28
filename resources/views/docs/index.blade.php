@@ -22,7 +22,7 @@
     <p>Base URL: <code>{{ $baseUrl }}</code> · Currency: <code>{{ $currency }}</code> · All bodies are JSON.</p>
 
     <h2>2. Authentication &amp; signing</h2>
-    <p>Get your <strong>API key</strong> and <strong>API secret</strong> from the gateway admin. Never put the secret in browser or mobile code.</p>
+    <p>Sign in to the <a href="{{ route('merchant.login') }}">merchant portal</a> with the login your gateway admin gave you. It shows your <strong>Merchant ID</strong>, <strong>API key</strong> and <strong>API secret</strong>, checks your request signatures, and runs a test Pay-In with a live QR. Never put the secret in browser or mobile code.</p>
     <table>
         <thead><tr><th>Header</th><th>Value</th></tr></thead>
         <tbody>

@@ -281,6 +281,11 @@ input:focus, select:focus, textarea:focus {
 }
 
 .checkbox { display: flex; align-items: center; gap: .5rem; font-weight: 500; }
+
+.fieldset { border: 1px solid var(--border); border-radius: 8px; padding: .9rem 1rem .2rem; margin: 0 0 1rem; }
+.fieldset legend { font-weight: 700; padding: 0 .35rem; }
+textarea.mono { font-family: var(--mono); font-size: .85rem; }
+details summary { cursor: pointer; }
 .checkbox input { width: auto; }
 
 .field-error { color: var(--danger); font-size: .8rem; margin-top: .25rem; }

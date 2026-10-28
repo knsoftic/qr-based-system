@@ -3,6 +3,7 @@
 use App\Http\Middleware\AuthenticateMerchant;
 use App\Http\Middleware\AuthenticateVerifier;
 use App\Http\Middleware\EnsureAdminIsActive;
+use App\Http\Middleware\EnsureMerchantPortal;
 use App\Http\Middleware\SecurityHeaders;
 use App\Payments\Exceptions\GatewayException;
 use Illuminate\Foundation\Application;
@@ -23,14 +24,18 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'merchant.auth' => AuthenticateMerchant::class,
+            'merchant.portal' => EnsureMerchantPortal::class,
             'verifier.auth' => AuthenticateVerifier::class,
             'admin.active' => EnsureAdminIsActive::class,
         ]);
 
         $middleware->append(SecurityHeaders::class);
 
-        $middleware->redirectGuestsTo(fn () => route('admin.login'));
-        $middleware->redirectUsersTo(fn () => route('admin.dashboard'));
+        // The portal signature checker compares a pasted request body byte for byte.
+        $middleware->trimStrings(except: ['sig_body']);
+
+        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('merchant', 'merchant/*') ? route('merchant.login') : route('admin.login'));
+        $middleware->redirectUsersTo(fn (Request $request) => $request->is('merchant', 'merchant/*') ? route('merchant.dashboard') : route('admin.dashboard'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());

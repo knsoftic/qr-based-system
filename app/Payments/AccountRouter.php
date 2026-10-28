@@ -15,9 +15,9 @@ use Illuminate\Support\Collection;
 class AccountRouter
 {
     public const STRATEGIES = [
+        'random' => 'Random (default)',
         'round_robin' => 'Round robin (least recently used)',
         'priority' => 'Priority (lowest number first)',
-        'random' => 'Random',
     ];
 
     public function __construct(private readonly Settings $settings)

@@ -53,6 +53,23 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(90)->by('checkout:'.$request->ip()));
 
+        RateLimiter::for('merchant-login', fn (Request $request) => [
+            Limit::perMinute(5)->by('mlogin:'.strtolower((string) $request->input('username')).'|'.$request->ip()),
+            Limit::perMinute(20)->by('mlogin-ip:'.$request->ip()),
+        ]);
+
+        // Password confirmations and credential checks in the merchant portal.
+        RateLimiter::for('merchant-sensitive', fn (Request $request) => Limit::perMinute(10)->by('msens:'.($request->user('merchant')?->id ?? $request->ip())));
+
+        // Test Pay-In creates real payment requests: keep it to a handful per minute.
+        RateLimiter::for('payin-test', function (Request $request) {
+            $who = $request->is('admin/*')
+                ? 'admin:'.($request->user()?->id ?? $request->ip())
+                : 'merchant:'.($request->user('merchant')?->id ?? $request->ip());
+
+            return Limit::perMinute(6)->by('ptest:'.$who);
+        });
+
         RateLimiter::for('admin-login', fn (Request $request) => [
             Limit::perMinute(5)->by('login:'.strtolower((string) $request->input('email')).'|'.$request->ip()),
             Limit::perMinute(20)->by('login-ip:'.$request->ip()),

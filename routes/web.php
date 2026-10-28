@@ -12,6 +12,8 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DocsController;
+use App\Http\Controllers\Merchant\AuthController as MerchantAuthController;
+use App\Http\Controllers\Merchant\PortalController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/docs');
@@ -20,6 +22,25 @@ Route::get('/docs', DocsController::class)->name('docs');
 Route::middleware('throttle:checkout')->group(function () {
     Route::get('/checkout/{paymentId}', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::get('/checkout/{paymentId}/status', [CheckoutController::class, 'status'])->name('checkout.status');
+});
+
+Route::prefix('merchant')->name('merchant.')->group(function () {
+    Route::middleware('guest:merchant')->group(function () {
+        Route::get('login', [MerchantAuthController::class, 'showLogin'])->name('login');
+        Route::post('login', [MerchantAuthController::class, 'login'])->middleware('throttle:merchant-login')->name('login.attempt');
+    });
+
+    Route::middleware('merchant.portal')->group(function () {
+        Route::post('logout', [MerchantAuthController::class, 'logout'])->name('logout');
+        Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
+        Route::post('secret/reveal', [PortalController::class, 'revealSecret'])->middleware('throttle:merchant-sensitive')->name('secret.reveal');
+        Route::post('secret/rotate', [PortalController::class, 'rotateSecret'])->middleware('throttle:merchant-sensitive')->name('secret.rotate');
+        Route::get('test', [PortalController::class, 'testForm'])->name('test');
+        Route::post('test', [PortalController::class, 'runTest'])->middleware('throttle:payin-test')->name('test.run');
+        Route::get('verify', [PortalController::class, 'verifyForm'])->name('verify');
+        Route::post('verify/credentials', [PortalController::class, 'verifyCredentials'])->middleware('throttle:merchant-sensitive')->name('verify.credentials');
+        Route::post('verify/signature', [PortalController::class, 'verifySignature'])->middleware('throttle:merchant-sensitive')->name('verify.signature');
+    });
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -49,6 +70,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('merchants/{merchant}', [MerchantController::class, 'update'])->name('merchants.update');
         Route::post('merchants/{merchant}/rotate', [MerchantController::class, 'rotate'])->name('merchants.rotate');
         Route::post('merchants/{merchant}/toggle', [MerchantController::class, 'toggle'])->name('merchants.toggle');
+        Route::post('merchants/{merchant}/portal-password', [MerchantController::class, 'resetPortalPassword'])->name('merchants.portal-password');
+        Route::post('merchants/{merchant}/test-payin', [MerchantController::class, 'testPayIn'])->middleware('throttle:payin-test')->name('merchants.test');
 
         Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
         Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
