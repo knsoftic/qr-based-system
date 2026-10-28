@@ -1,7 +1,77 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\Admin\MerchantController;
+use App\Http\Controllers\Admin\PaymentAccountController;
+use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\TransactionController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\DocsController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+Route::redirect('/', '/docs');
+Route::get('/docs', DocsController::class)->name('docs');
+
+Route::middleware('throttle:checkout')->group(function () {
+    Route::get('/checkout/{paymentId}', [CheckoutController::class, 'show'])->name('checkout.show');
+    Route::get('/checkout/{paymentId}/status', [CheckoutController::class, 'status'])->name('checkout.status');
+});
+
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('guest')->group(function () {
+        Route::get('login', [AuthController::class, 'showLogin'])->name('login');
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:admin-login')->name('login.attempt');
+    });
+
+    Route::middleware(['auth', 'admin.active'])->group(function () {
+        Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+        Route::get('/', DashboardController::class)->name('dashboard');
+
+        Route::get('accounts', [PaymentAccountController::class, 'index'])->name('accounts.index');
+        Route::get('accounts/create', [PaymentAccountController::class, 'create'])->name('accounts.create');
+        Route::post('accounts', [PaymentAccountController::class, 'store'])->name('accounts.store');
+        Route::get('accounts/{account}', [PaymentAccountController::class, 'show'])->name('accounts.show');
+        Route::get('accounts/{account}/edit', [PaymentAccountController::class, 'edit'])->name('accounts.edit');
+        Route::put('accounts/{account}', [PaymentAccountController::class, 'update'])->name('accounts.update');
+        Route::post('accounts/{account}/qr', [PaymentAccountController::class, 'uploadQr'])->name('accounts.qr');
+        Route::post('accounts/{account}/toggle', [PaymentAccountController::class, 'toggle'])->name('accounts.toggle');
+
+        Route::get('merchants', [MerchantController::class, 'index'])->name('merchants.index');
+        Route::get('merchants/create', [MerchantController::class, 'create'])->name('merchants.create');
+        Route::post('merchants', [MerchantController::class, 'store'])->name('merchants.store');
+        Route::get('merchants/{merchant}', [MerchantController::class, 'show'])->name('merchants.show');
+        Route::get('merchants/{merchant}/edit', [MerchantController::class, 'edit'])->name('merchants.edit');
+        Route::put('merchants/{merchant}', [MerchantController::class, 'update'])->name('merchants.update');
+        Route::post('merchants/{merchant}/rotate', [MerchantController::class, 'rotate'])->name('merchants.rotate');
+        Route::post('merchants/{merchant}/toggle', [MerchantController::class, 'toggle'])->name('merchants.toggle');
+
+        Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+        Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
+        Route::get('transactions/{payment}', [TransactionController::class, 'show'])->name('transactions.show');
+        Route::post('transactions/{payment}/paid', [TransactionController::class, 'markPaid'])->name('transactions.paid');
+        Route::post('transactions/{payment}/failed', [TransactionController::class, 'markFailed'])->name('transactions.failed');
+        Route::post('transactions/{payment}/callback', [TransactionController::class, 'resendCallback'])->name('transactions.callback');
+
+        Route::get('settings/{tab?}', [SettingsController::class, 'edit'])->name('settings.edit')->whereIn('tab', SettingsController::TABS);
+        Route::put('settings/{tab}', [SettingsController::class, 'update'])->name('settings.update')->whereIn('tab', SettingsController::TABS);
+        Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->name('settings.verifier-key');
+
+        Route::get('reports', ReportController::class)->name('reports');
+
+        Route::get('logs/audit', [LogController::class, 'audit'])->name('logs.audit');
+        Route::get('logs/transactions', [LogController::class, 'events'])->name('logs.events');
+        Route::get('logs/callbacks', [LogController::class, 'callbacks'])->name('logs.callbacks');
+
+        Route::get('admins', [AdminUserController::class, 'index'])->name('admins.index');
+        Route::post('admins', [AdminUserController::class, 'store'])->name('admins.store');
+        Route::post('admins/{user}/toggle', [AdminUserController::class, 'toggle'])->name('admins.toggle');
+
+        Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    });
 });
