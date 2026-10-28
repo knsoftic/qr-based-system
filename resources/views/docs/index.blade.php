@@ -34,7 +34,7 @@
     </table>
     <p>String to sign (four parts joined with a newline <code>\n</code>):</p>
     <pre>timestamp + "\n" + HTTP_METHOD + "\n" + REQUEST_URI + "\n" + RAW_BODY</pre>
-    <p><code>REQUEST_URI</code> is the path plus query string exactly as requested, e.g. <code>{{ parse_url($baseUrl, PHP_URL_PATH) }}/payments</code>. For <code>GET</code> the body is an empty string. Every signature can be used only once.</p>
+    <p><code>REQUEST_URI</code> is the path plus query string exactly as requested, e.g. <code>{{ parse_url($baseUrl, PHP_URL_PATH) }}/payments</code>. For <code>GET</code> the body is an empty string. A signature cannot be reused; the only exception is an exact retry of a <code>POST</code> with the same <code>Idempotency-Key</code>, which safely returns the original payment.</p>
 
     <h2>3. Create a payment</h2>
     <pre>POST {{ $baseUrl }}/payments

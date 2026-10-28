@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  *   X-Timestamp: unix time (seconds), must be within the tolerance window
  *   X-Signature: hex(HMAC-SHA256(api_secret, timestamp + "\n" + METHOD + "\n" + request URI + "\n" + raw body))
  *
- * A signature is accepted only once (replay protection).
+ * A signature is accepted only once (replay protection), except for exact
+ * retries of POST requests with an Idempotency-Key.
  */
 class AuthenticateMerchant
 {
@@ -48,7 +49,11 @@ class AuthenticateMerchant
             throw $this->fail('Invalid signature.', 'invalid_signature');
         }
 
-        if (! Cache::add('api-signature:'.$signature, true, $tolerance * 2)) {
+        // An exact retry of a POST carrying an Idempotency-Key is harmless (it
+        // returns the original payment), so HTTP clients may safely resend it.
+        $idempotentRetry = $request->isMethod('POST') && $request->hasHeader('Idempotency-Key');
+
+        if (! Cache::add('api-signature:'.$signature, true, $tolerance * 2) && ! $idempotentRetry) {
             throw $this->fail('This request was already processed (replayed signature).', 'replayed_request');
         }
 
