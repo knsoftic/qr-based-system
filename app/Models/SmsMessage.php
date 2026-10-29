@@ -21,6 +21,9 @@ class SmsMessage extends Model
         'sim_slot',
         'sim_name',
         'amount',
+        'payer_phone',
+        'bank_ref',
+        'direction',
     ];
 
     protected function casts(): array
@@ -29,12 +32,83 @@ class SmsMessage extends Model
             'body' => 'encrypted',
             'received_at' => 'datetime',
             'amount' => 'decimal:2',
+            'auto_verified' => 'boolean',
         ];
     }
 
     public function device(): BelongsTo
     {
         return $this->belongsTo(SmsDevice::class, 'sms_device_id');
+    }
+
+    public function matchedPayment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class, 'matched_payment_id');
+    }
+
+    /**
+     * Everything we read out of one SMS body, ready to store.
+     *
+     * @return array{amount: ?string, payer_phone: ?string, bank_ref: ?string, direction: string}
+     */
+    public static function parse(string $body): array
+    {
+        return [
+            'amount' => self::detectAmount($body),
+            'payer_phone' => self::detectPayerPhone($body),
+            'bank_ref' => self::detectReference($body),
+            'direction' => self::direction($body),
+        ];
+    }
+
+    /**
+     * Pakistani mobile number in the text (03xx-xxxxxxx, +923xx…), normalised to 03XXXXXXXXX.
+     */
+    public static function detectPayerPhone(string $body): ?string
+    {
+        if (! preg_match('/(?<![\d])(\+?92|0)?\s?3\d{2}[\s-]?\d{7}(?![\d])/', $body, $m)) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D/', '', $m[0]);
+        $digits = preg_replace('/^92/', '0', $digits);
+        if (strlen($digits) === 10 && $digits[0] === '3') {
+            $digits = '0'.$digits;
+        }
+
+        return (strlen($digits) === 11 && str_starts_with($digits, '03')) ? $digits : null;
+    }
+
+    /**
+     * Bank transaction id / reference (TID, Trx ID, Ref No, …) in the SMS.
+     */
+    public static function detectReference(string $body): ?string
+    {
+        if (preg_match('/\b(?:TID|TrxID|Trx(?:n)?\.?\s?ID|Transaction\s?(?:ID|No)|Ref(?:erence)?\.?\s?(?:No\.?|#)?)\s*[:#.]?\s*([A-Za-z0-9]{4,20})\b/i', $body, $m)) {
+            return $m[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Money direction. Only a "credit" (money received) can verify a payment.
+     */
+    public static function direction(string $body): string
+    {
+        if (preg_match('/\b(received|credited|credit|deposit(?:ed)?)\b/i', $body)) {
+            return 'credit';
+        }
+        if (preg_match('/\b(sent|debited|debit|transferred|paid to|withdrawn|purchase)\b/i', $body)) {
+            return 'debit';
+        }
+
+        return 'other';
+    }
+
+    public function isCredit(): bool
+    {
+        return $this->direction === 'credit';
     }
 
     /**

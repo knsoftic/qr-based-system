@@ -53,9 +53,10 @@
                 <tr>
                     <th>Received</th>
                     <th>From</th>
+                    <th>Payer</th>
                     <th>Message</th>
                     <th class="num">Amount</th>
-                    <th>Possible match</th>
+                    <th>Match / verification</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -68,21 +69,35 @@
                             </div>
                         </td>
                         <td class="mono nowrap">{{ $sms->sender }}</td>
-                        <td style="min-width: 320px; white-space: pre-line">{{ $sms->body }}</td>
+                        <td class="mono nowrap">
+                            {{ $sms->payer_phone ?? '—' }}
+                            @if ($sms->bank_ref)<div class="muted" style="font-size: .75rem">ref {{ $sms->bank_ref }}</div>@endif
+                        </td>
+                        <td style="min-width: 300px; white-space: pre-line">{{ $sms->body }}</td>
                         <td class="num">{{ $sms->amount !== null ? number_format($sms->amount, 2) : '—' }}</td>
                         <td class="nowrap">
-                            @forelse ($sms->possibleMatches() as $payment)
-                                <div style="margin-bottom: .25rem">
-                                    <a href="{{ route('admin.transactions.show', $payment) }}" class="mono">{{ $payment->transaction_id }}</a>
-                                    <span class="badge badge--{{ $payment->status->value }}">{{ $payment->status->label() }}</span>
-                                </div>
-                            @empty
-                                <span class="muted">—</span>
-                            @endforelse
+                            @if ($sms->auto_verified && $sms->matchedPayment)
+                                <span class="badge badge--success">Auto-verified {{ $sms->match_score }}%</span>
+                                <div><a href="{{ route('admin.transactions.show', $sms->matchedPayment) }}" class="mono">{{ $sms->matchedPayment->transaction_id }}</a></div>
+                            @elseif ($sms->matchedPayment)
+                                <span class="badge badge--warning">Possible {{ $sms->match_score }}%</span>
+                                <div><a href="{{ route('admin.transactions.show', $sms->matchedPayment) }}" class="mono">{{ $sms->matchedPayment->transaction_id }}</a></div>
+                            @else
+                                @php($suggestions = $sms->possibleMatches())
+                                @forelse ($suggestions as $payment)
+                                    <div style="margin-bottom: .25rem">
+                                        <a href="{{ route('admin.transactions.show', $payment) }}" class="mono">{{ $payment->transaction_id }}</a>
+                                        <span class="badge badge--{{ $payment->status->value }}">{{ $payment->status->label() }}</span>
+                                    </div>
+                                @empty
+                                    <span class="muted">—</span>
+                                @endforelse
+                                @if ($suggestions->count() > 1)<div class="muted" style="font-size: .75rem">ambiguous · verify manually</div>@endif
+                            @endif
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="empty">No SMS yet. <a href="{{ route('admin.sms.devices') }}">Add a device</a> and install the app on the phone.</td></tr>
+                    <tr><td colspan="6" class="empty">No SMS yet. <a href="{{ route('admin.sms.devices') }}">Add a device</a> and install the app on the phone.</td></tr>
                 @endforelse
                 </tbody>
             </table>

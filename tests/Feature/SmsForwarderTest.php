@@ -147,6 +147,8 @@ class SmsForwarderTest extends TestCase
     {
         $this->actingAs($this->makeAdmin());
         [$merchant, $secret] = $this->makeMerchant();
+        // Auto-verify off: the inbox only suggests the match, nothing is changed.
+        app(\App\Support\Settings::class)->set(['verification.sms_auto_verify' => false]);
         $this->makeAccount();
         $this->createPayment($merchant, $secret, ['amount' => 1500])->assertCreated();
         $payment = \App\Models\Payment::query()->sole();

@@ -75,6 +75,14 @@ class Payment extends Model
         return $this->hasMany(CallbackDelivery::class)->orderBy('id');
     }
 
+    /**
+     * The forwarded SMS that verified this payment (SMS / auto verification).
+     */
+    public function smsMessage(): BelongsTo
+    {
+        return $this->belongsTo(SmsMessage::class, 'sms_message_id');
+    }
+
     public function isPending(): bool
     {
         return $this->status === PaymentStatus::Pending;

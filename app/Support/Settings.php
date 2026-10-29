@@ -39,6 +39,10 @@ class Settings
 
             // sha256 of the verifier key; the plain key is shown once on generation.
             'verification.key_hash' => null,
+
+            // Auto-verify a payment from a forwarded SMS (see App\Payments\SmsMatcher).
+            'verification.sms_auto_verify' => true,
+            'verification.sms_threshold' => 80,
         ];
     }
 

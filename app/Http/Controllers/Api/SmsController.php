@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\SmsDevice;
 use App\Models\SmsMessage;
+use App\Payments\SmsMatcher;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,7 @@ use Illuminate\Support\Carbon;
  */
 class SmsController extends Controller
 {
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, SmsMatcher $matcher): JsonResponse
     {
         $device = $this->device($request);
 
@@ -30,13 +31,12 @@ class SmsController extends Controller
 
         $this->touch($device, $request);
 
-        $attributes = [
+        $attributes = SmsMessage::parse($data['body']) + [
             'sender' => $data['sender'],
             'body' => $data['body'],
             'received_at' => Carbon::createFromTimestampMs($data['received_at'])->utc(),
             'sim_slot' => $data['sim_slot'] ?? null,
             'sim_name' => $data['sim_name'] ?? null,
-            'amount' => SmsMessage::detectAmount($data['body']),
         ];
 
         try {
@@ -51,10 +51,22 @@ class SmsController extends Controller
 
         $created = $message->wasRecentlyCreated;
 
+        if ($created) {
+            // Match against pending payments; a strong unique match verifies it.
+            // Never let a matching error stop the SMS from being stored.
+            try {
+                $matcher->process($message->setRelation('device', $device));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
         return response()->json([
             'status' => $created ? 'stored' : 'duplicate',
             'id' => $message->id,
             'amount' => $message->amount,
+            'matched' => (bool) $message->matched_payment_id,
+            'auto_verified' => (bool) $message->auto_verified,
         ], $created ? 201 : 200);
     }
 

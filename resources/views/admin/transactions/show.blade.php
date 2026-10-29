@@ -44,8 +44,18 @@
                     <dt>Created</dt><dd>{{ $payment->created_at->format('d M Y, H:i:s') }}</dd>
                     <dt>QR expires</dt><dd>{{ $payment->expires_at->format('d M Y, H:i:s') }}</dd>
                     <dt>Paid at</dt><dd>{{ $payment->paid_at?->format('d M Y, H:i:s') ?? '—' }}</dd>
-                    <dt>Verified by</dt><dd>{{ $payment->verified_by ?? '—' }}</dd>
+                    <dt>Verified by</dt><dd>{{ $payment->verified_by === 'sms' ? 'SMS (auto)' : ($payment->verified_by ?? '—') }}</dd>
                     <dt>Bank reference</dt><dd class="mono">{{ $payment->verification_reference ?? '—' }}</dd>
+                    <dt>Payer mobile</dt><dd class="mono">{{ $payment->payer_phone ?? '—' }}</dd>
+                    @if ($payment->sms_message_id && $payment->smsMessage)
+                        <dt>Verifying SMS</dt>
+                        <dd>
+                            <a href="{{ route('admin.sms.index', ['sender' => $payment->smsMessage->sender]) }}">from {{ $payment->smsMessage->sender }}</a>,
+                            {{ $payment->smsMessage->received_at->timezone('Asia/Karachi')->format('d M, H:i:s') }}
+                            @if ($payment->smsMessage->match_score) · {{ $payment->smsMessage->match_score }}% match @endif
+                            <div class="muted" style="font-size: .8rem; white-space: pre-line">{{ \Illuminate\Support\Str::limit($payment->smsMessage->body, 160) }}</div>
+                        </dd>
+                    @endif
                     <dt>Description</dt><dd>{{ $payment->description ?? '—' }}</dd>
                     <dt>Customer</dt>
                     <dd>{{ collect([$payment->customer_name, $payment->customer_email, $payment->customer_phone])->filter()->implode(' · ') ?: '—' }}</dd>

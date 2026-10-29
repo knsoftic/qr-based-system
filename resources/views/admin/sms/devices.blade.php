@@ -73,6 +73,25 @@
 
         <div>
             <div class="card">
+                <div class="card-head"><h2>Auto-verification</h2></div>
+                <div class="card-body">
+                    <p class="muted mt-0">When a forwarded SMS says money was received and it matches exactly one pending payment of that amount, the payment is marked paid automatically and the merchant callback is sent. Two payments of the same amount at once are never auto-verified.</p>
+                    <form method="POST" action="{{ route('admin.sms.settings') }}">
+                        @csrf
+                        <div class="form-row">
+                            <label class="checkbox"><input type="checkbox" name="sms_auto_verify" value="1" @checked($settings['verification.sms_auto_verify'])> Auto-verify payments from SMS</label>
+                        </div>
+                        <div class="form-row">
+                            <label for="sms_threshold">Match threshold (%)</label>
+                            <input id="sms_threshold" type="number" name="sms_threshold" min="50" max="100" value="{{ $settings['verification.sms_threshold'] }}">
+                            <div class="hint">A unique pending payment with the exact amount scores ≥ 90%. Raise this to be stricter.</div>
+                        </div>
+                        <button type="submit" class="btn btn--primary">Save</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
                 <div class="card-head"><h2>Add a device</h2></div>
                 <div class="card-body">
                     <form method="POST" action="{{ route('admin.sms.devices.store') }}">

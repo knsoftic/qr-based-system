@@ -94,6 +94,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('sms/devices', [SmsController::class, 'storeDevice'])->name('sms.devices.store');
         Route::post('sms/devices/{device}/toggle', [SmsController::class, 'toggleDevice'])->name('sms.devices.toggle');
         Route::post('sms/devices/{device}/rotate', [SmsController::class, 'rotateDevice'])->name('sms.devices.rotate');
+        Route::post('sms/settings', [SmsController::class, 'saveSettings'])->name('sms.settings');
         Route::get('sms/app.apk', [SmsController::class, 'downloadApp'])->name('sms.app');
 
         Route::get('logs/audit', [LogController::class, 'audit'])->name('logs.audit');

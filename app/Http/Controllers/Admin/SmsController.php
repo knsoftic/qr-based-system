@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SmsDevice;
 use App\Models\SmsMessage;
 use App\Support\Audit;
+use App\Support\Settings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -43,12 +44,35 @@ class SmsController extends Controller
         ]);
     }
 
-    public function devices(): View
+    public function devices(Settings $settings): View
     {
         return view('admin.sms.devices', [
             'devices' => SmsDevice::query()->withCount('messages')->orderBy('name')->get(),
             'apkAvailable' => is_file(resource_path(self::APK_PATH)),
+            'settings' => $settings->all(),
         ]);
+    }
+
+    /**
+     * SMS auto-verification: on/off and the match threshold.
+     */
+    public function saveSettings(Request $request, Settings $settings): RedirectResponse
+    {
+        $data = $request->validate([
+            'sms_threshold' => ['required', 'integer', 'min:50', 'max:100'],
+        ]);
+
+        $settings->set([
+            'verification.sms_auto_verify' => $request->boolean('sms_auto_verify'),
+            'verification.sms_threshold' => $data['sms_threshold'],
+        ]);
+
+        Audit::log('settings.sms_auto_verify', null, [], [
+            'enabled' => $request->boolean('sms_auto_verify'),
+            'threshold' => $data['sms_threshold'],
+        ]);
+
+        return redirect()->route('admin.sms.devices')->with('success', 'SMS auto-verification settings saved.');
     }
 
     public function storeDevice(Request $request): RedirectResponse

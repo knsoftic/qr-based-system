@@ -41,7 +41,7 @@ class TransactionController extends Controller
         $this->payments->expireIfLapsed($payment);
 
         return view('admin.transactions.show', [
-            'payment' => $payment->load(['merchant', 'account', 'events', 'callbackDeliveries']),
+            'payment' => $payment->load(['merchant', 'account', 'events', 'callbackDeliveries', 'smsMessage']),
         ]);
     }
 
