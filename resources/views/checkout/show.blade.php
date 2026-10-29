@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Pay {{ $payment->currency }} {{ number_format($payment->amount, 2) }} · {{ $payment->merchant->name }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=2">
 </head>
 <body class="checkout-body">
 <main class="checkout" id="checkout"
@@ -86,6 +86,8 @@
     </ol>
 
     <p class="checkout-redirect" id="redirect-note" hidden>Returning to the store…</p>
+
+    <footer class="checkout-foot"><x-icon name="shield" :size="14" /> Secure Raast QR payment · {{ config('app.name') }}</footer>
 </main>
 
 <script>

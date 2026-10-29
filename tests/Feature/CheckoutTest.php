@@ -32,7 +32,7 @@ class CheckoutTest extends TestCase
             ->assertSee($payment->payment_id)
             ->assertSee($payment->transaction_id)
             ->assertSee('Demo Shop')
-            ->assertSee('<svg', false)
+            ->assertSee('class="qr-svg', false)
             ->assertSee('QR expires in')
             // Backend account details are never exposed.
             ->assertDontSee('PK00DEMO')
@@ -51,7 +51,7 @@ class CheckoutTest extends TestCase
         $this->get(route('checkout.show', $payment->payment_id))
             ->assertOk()
             ->assertSee('QR code expired')
-            ->assertDontSee('<svg', false);
+            ->assertDontSee('qr-svg', false);
 
         $this->assertSame(PaymentStatus::Expired, $payment->fresh()->status);
         $this->assertDatabaseHas('payment_events', ['payment_id' => $payment->id, 'event' => 'status_changed', 'to_status' => 'expired']);

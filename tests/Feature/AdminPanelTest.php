@@ -25,6 +25,22 @@ class AdminPanelTest extends TestCase
         $this->get('/admin/accounts')->assertRedirect(route('admin.login'));
     }
 
+    public function test_lists_never_show_a_lapsed_qr_as_pending(): void
+    {
+        $this->actingAs($this->makeAdmin());
+        [$merchant, $secret] = $this->makeMerchant();
+        $account = $this->makeAccount();
+        $this->createPayment($merchant, $secret)->assertCreated();
+        $this->travel(6)->minutes();
+
+        // Dashboard, merchant page and account page all show recent payments.
+        foreach ([route('admin.dashboard'), route('admin.merchants.show', $merchant), route('admin.accounts.show', $account)] as $url) {
+            $this->get($url)->assertOk()->assertSee('Expired')->assertDontSee('badge--pending', false);
+        }
+
+        $this->assertSame(PaymentStatus::Expired, Payment::query()->sole()->status);
+    }
+
     public function test_an_admin_can_sign_in_and_a_disabled_admin_cannot(): void
     {
         $admin = $this->makeAdmin();

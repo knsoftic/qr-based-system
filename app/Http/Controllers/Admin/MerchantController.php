@@ -6,6 +6,7 @@ use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Payments\PayInTester;
+use App\Payments\PaymentService;
 use App\Support\Audit;
 use App\Support\UrlGuard;
 use Closure;
@@ -53,8 +54,10 @@ class MerchantController extends Controller
             ->with('success', 'Merchant created. Copy the API secret now; it will not be shown again.');
     }
 
-    public function show(Merchant $merchant, PayInTester $tester): View
+    public function show(Merchant $merchant, PayInTester $tester, PaymentService $payments): View
     {
+        $payments->expireLapsed();
+
         return view('admin.merchants.show', [
             'merchant' => $merchant,
             'payments' => $merchant->payments()->latest('id')->limit(15)->get(),

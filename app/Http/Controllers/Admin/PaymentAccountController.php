@@ -9,6 +9,7 @@ use App\Models\PaymentAccount;
 use App\Payments\AccountQrProcessor;
 use App\Payments\Emv\Tlv;
 use App\Payments\Exceptions\UnsupportedPayloadException;
+use App\Payments\PaymentService;
 use App\Payments\Providers\ProviderRegistry;
 use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
@@ -83,8 +84,9 @@ class PaymentAccountController extends Controller
         return redirect()->route('admin.accounts.show', $account)->with(...$this->decodeFlash($account));
     }
 
-    public function show(PaymentAccount $account): View
+    public function show(PaymentAccount $account, PaymentService $payments): View
     {
+        $payments->expireLapsed();
         $provider = $account->isDecoded() ? $this->providers->make($account->provider) : null;
 
         return view('admin.accounts.show', [

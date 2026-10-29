@@ -33,6 +33,21 @@ class MerchantPortalTest extends TestCase
         return $this->post(route('merchant.login.attempt'), ['username' => $username, 'password' => $password]);
     }
 
+    public function test_the_landing_page_sends_visitors_to_the_merchant_login(): void
+    {
+        $this->get('/')->assertRedirect('/merchant/login');
+
+        $this->get(route('merchant.login'))
+            ->assertOk()
+            ->assertSee('Merchant login')
+            ->assertSee('Enter your merchant details to sign in to your account.');
+
+        // A signed-in merchant goes straight to the dashboard.
+        $this->portalMerchant();
+        $this->signIn();
+        $this->get(route('merchant.login'))->assertRedirect(route('merchant.dashboard'));
+    }
+
     public function test_admin_creates_a_merchant_with_a_portal_login_and_sees_the_password_once(): void
     {
         $this->actingAs($this->makeAdmin());
@@ -177,7 +192,7 @@ class MerchantPortalTest extends TestCase
         $this->get(route('merchant.test'))
             ->assertOk()
             ->assertSee('HTTP 201')
-            ->assertSee('<svg', false)
+            ->assertSee('class="qr-svg', false)
             ->assertSee($payment->payment_id)
             ->assertSee($payment->checkoutUrl())
             ->assertDontSee('PK00')
@@ -212,7 +227,7 @@ class MerchantPortalTest extends TestCase
 
         $this->get(route('admin.merchants.show', $merchant))
             ->assertSee('HTTP 201')
-            ->assertSee('<svg', false)
+            ->assertSee('class="qr-svg', false)
             ->assertSee(route('admin.transactions.show', $payment));
         $this->assertDatabaseHas('audit_logs', ['action' => 'merchant.payin_test']);
     }

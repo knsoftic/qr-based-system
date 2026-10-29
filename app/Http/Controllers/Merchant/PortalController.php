@@ -6,6 +6,7 @@ use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Payments\PayInTester;
+use App\Payments\PaymentService;
 use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,8 +20,9 @@ use Illuminate\View\View;
  */
 class PortalController extends Controller
 {
-    public function dashboard(Request $request): View
+    public function dashboard(Request $request, PaymentService $payments): View
     {
+        $payments->expireLapsed();
         $merchant = $this->merchant($request);
         $today = $merchant->payments()->where('created_at', '>=', now()->startOfDay());
 

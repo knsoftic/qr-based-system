@@ -4,15 +4,23 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Merchant API · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=2">
 </head>
 <body>
-<div class="docs">
-    <div class="brand" style="color: var(--text); padding-left: 0"><span class="brand-mark" style="color:#fff">QR</span> {{ config('app.name') }}</div>
-    <h1>Merchant API integration</h1>
-    <p class="muted">Accept QR payments on your website with two API calls and one callback.</p>
+<header class="docs-top">
+    <div class="brand"><span class="brand-mark">QR</span> {{ config('app.name') }}</div>
+    <a href="{{ route('merchant.login') }}" class="btn btn--primary btn--sm"><x-icon name="store" :size="15" /> Merchant login</a>
+</header>
 
-    <h2>1. How it works</h2>
+<section class="docs-hero">
+    <div>
+        <h1>Merchant API integration</h1>
+        <p>Accept Raast QR payments on your website with two API calls and one callback.</p>
+    </div>
+</section>
+
+<div class="docs">
+    <h2 style="border-top: 0; margin-top: .5rem">1. How it works</h2>
     <ol>
         <li>Your server creates a payment: <code>POST /payments</code> with the amount and your order ID.</li>
         <li>You receive <code>payment_id</code>, <code>transaction_id</code> and <code>checkout_url</code>. Redirect the customer to the checkout URL.</li>

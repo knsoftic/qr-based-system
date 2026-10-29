@@ -16,7 +16,8 @@ use App\Http\Controllers\Merchant\AuthController as MerchantAuthController;
 use App\Http\Controllers\Merchant\PortalController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/docs');
+// The public front door is the merchant login (signed-in merchants land on their dashboard).
+Route::redirect('/', '/merchant/login');
 Route::get('/docs', DocsController::class)->name('docs');
 
 Route::middleware('throttle:checkout')->group(function () {

@@ -7,12 +7,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
+use App\Payments\PaymentService;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(PaymentService $payments): View
     {
+        // Same as the transactions page: never show a lapsed QR as "pending".
+        $payments->expireLapsed();
+
         $today = Payment::query()->where('created_at', '>=', now()->startOfDay());
 
         $todayStats = (clone $today)
