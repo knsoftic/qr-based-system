@@ -6,7 +6,7 @@
     <div class="page-head">
         <div>
             <h1>Add payment account</h1>
-            <p>Upload the authorized QR. The payload is read automatically; nothing has to be typed in.</p>
+            <p>Upload the authorized QR (read automatically), paste its text, or add a Raast account by IBAN.</p>
         </div>
     </div>
 
@@ -21,22 +21,7 @@
                         <div class="hint">Internal label, never shown to customers.</div>
                     </div>
 
-                    <div class="form-row">
-                        <label for="provider">Provider</label>
-                        <select id="provider" name="provider" required>
-                            <option value="auto" @selected(old('provider', 'auto') === 'auto')>Auto-detect (recommended)</option>
-                            @foreach ($providers as $key => $name)
-                                <option value="{{ $key }}" @selected(old('provider') === $key)>{{ $name }}</option>
-                            @endforeach
-                        </select>
-                        <div class="hint">Auto-detect tries every supported format and keeps the one that verifies.</div>
-                    </div>
-
-                    <div class="form-row">
-                        <label for="qr_image">Authorized QR code image</label>
-                        <input id="qr_image" type="file" name="qr_image" accept="image/png,image/jpeg,image/gif,image/webp" required>
-                        <div class="hint">PNG, JPG, GIF or WEBP, up to 4 MB. Use a clear, uncropped image.</div>
-                    </div>
+                    @include('admin.accounts._qr-source', ['providers' => $providers, 'selectedProvider' => 'auto'])
 
                     <div class="grid grid-2">
                         <div class="form-row">
@@ -54,17 +39,17 @@
                         <label class="checkbox"><input type="checkbox" name="activate" value="1" @checked(old('activate', true))> Activate automatically if the QR is verified</label>
                     </div>
 
-                    <button type="submit" class="btn btn--primary">Upload &amp; decode QR</button>
+                    <button type="submit" class="btn btn--primary">Add &amp; verify account</button>
                     <a href="{{ route('admin.accounts.index') }}" class="btn">Cancel</a>
                 </form>
             </div>
         </div>
 
         <div class="card">
-            <div class="card-head"><h2>What happens on upload</h2></div>
+            <div class="card-head"><h2>What happens next</h2></div>
             <div class="card-body">
                 <ol style="padding-left: 1.1rem; margin: 0">
-                    <li>The image is decoded on the server and the QR payload is extracted.</li>
+                    <li>The image is decoded on the server (or your pasted text / IBAN is used) and the QR payload is extracted.</li>
                     <li>The selected provider adapter identifies the format and verifies the structure and checksum (CRC).</li>
                     <li>Only if verification passes is a payload template saved, encrypted at rest.</li>
                     <li>For each payment, only the fields the specification allows are changed: amount, reference (transaction ID), initiation method and checksum.</li>

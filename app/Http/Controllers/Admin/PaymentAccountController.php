@@ -11,7 +11,9 @@ use App\Payments\Emv\Tlv;
 use App\Payments\Exceptions\UnsupportedPayloadException;
 use App\Payments\PaymentService;
 use App\Payments\Providers\ProviderRegistry;
+use App\Payments\Raast\Iban;
 use App\Support\Audit;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,8 +21,6 @@ use Illuminate\View\View;
 
 class PaymentAccountController extends Controller
 {
-    private const IMAGE_RULES = ['required', 'file', 'image', 'mimes:png,jpg,jpeg,gif,webp', 'max:4096'];
-
     public function __construct(
         private readonly AccountQrProcessor $processor,
         private readonly ProviderRegistry $providers,
@@ -53,22 +53,21 @@ class PaymentAccountController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'provider' => ['required', Rule::in([ProviderRegistry::AUTO, ...array_keys($this->providers->options())])],
             'priority' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'daily_limit' => ['nullable', 'numeric', 'min:0'],
-            'qr_image' => self::IMAGE_RULES,
+            ...$this->sourceRules(),
         ]);
 
         $account = new PaymentAccount([
             'name' => $data['name'],
-            'provider' => $data['provider'],
+            'provider' => $data['provider'] ?? ProviderRegistry::AUTO,
             'priority' => $data['priority'] ?? 100,
             'daily_limit' => $data['daily_limit'] ?? null,
         ]);
         $account->is_active = false;
         $account->decode_status = DecodeStatus::Pending;
 
-        $this->processor->process($account, $request->file('qr_image'));
+        $this->applySource($request, $account, $data);
 
         if ($account->isDecoded() && $request->boolean('activate')) {
             $account->forceFill(['is_active' => true])->save();
@@ -77,11 +76,43 @@ class PaymentAccountController extends Controller
         Audit::log('account.created', $account, [], [
             'name' => $account->name,
             'provider' => $account->provider,
+            'method' => $data['method'],
             'decode_status' => $account->decode_status,
             'is_active' => $account->is_active,
         ]);
 
         return redirect()->route('admin.accounts.show', $account)->with(...$this->decodeFlash($account));
+    }
+
+    /**
+     * Validation for the three ways to give the account its QR data.
+     */
+    private function sourceRules(): array
+    {
+        return [
+            'method' => ['required', Rule::in(['image', 'text', 'iban'])],
+            'provider' => ['nullable', Rule::in([ProviderRegistry::AUTO, ...array_keys($this->providers->options())])],
+            'qr_image' => ['required_if:method,image', 'nullable', 'file', 'image', 'mimes:png,jpg,jpeg,gif,webp', 'max:4096'],
+            'qr_text' => ['required_if:method,text', 'nullable', 'string', 'max:512'],
+            'iban' => [
+                'required_if:method,iban', 'nullable', 'string', 'max:40',
+                function (string $attribute, mixed $value, Closure $fail) {
+                    if (! Iban::isValid(strtoupper(preg_replace('/[\s-]+/', '', (string) $value)))) {
+                        $fail('This is not a valid Pakistani IBAN (24 characters, check digits must be correct).');
+                    }
+                },
+            ],
+            'bank_name' => ['nullable', 'string', 'max:25'],
+        ];
+    }
+
+    private function applySource(Request $request, PaymentAccount $account, array $data): void
+    {
+        match ($data['method']) {
+            'image' => $this->processor->process($account, $request->file('qr_image')),
+            'text' => $this->processor->processText($account, $data['qr_text']),
+            'iban' => $this->processor->processIban($account, $data['iban'], $data['bank_name'] ?? null),
+        };
     }
 
     public function show(PaymentAccount $account, PaymentService $payments): View
@@ -181,17 +212,15 @@ class PaymentAccountController extends Controller
 
     public function uploadQr(Request $request, PaymentAccount $account): RedirectResponse
     {
-        $data = $request->validate([
-            'provider' => ['required', Rule::in([ProviderRegistry::AUTO, ...array_keys($this->providers->options())])],
-            'qr_image' => self::IMAGE_RULES,
-        ]);
+        $data = $request->validate($this->sourceRules());
 
         $wasActive = $account->is_active;
-        $account->provider = $data['provider'];
-        $this->processor->process($account, $request->file('qr_image'));
+        $account->provider = $data['provider'] ?? ProviderRegistry::AUTO;
+        $this->applySource($request, $account, $data);
 
         Audit::log('account.qr_uploaded', $account, ['is_active' => $wasActive], [
             'provider' => $account->provider,
+            'method' => $data['method'],
             'decode_status' => $account->decode_status,
             'is_active' => $account->is_active,
         ]);

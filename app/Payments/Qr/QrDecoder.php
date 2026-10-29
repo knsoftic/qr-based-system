@@ -28,6 +28,7 @@ class QrDecoder
         }
 
         $lastError = null;
+        $damaged = false;
 
         foreach (self::ATTEMPTS as $attempt) {
             try {
@@ -39,11 +40,16 @@ class QrDecoder
                 }
             } catch (Throwable $e) {
                 $lastError = $e;
+                // The QR was located, but error correction could not repair it.
+                $damaged = $damaged || basename($e->getFile()) === 'ReedSolomonDecoder.php';
             }
         }
 
         throw new QrDecodeException(
-            'No readable QR code was found in the image. Upload a clear, uncropped image of the QR.',
+            $damaged
+                ? 'A QR code was found, but part of it cannot be read: usually a logo in the middle covers more than the QR can repair. '
+                    .'Use "Paste QR text" (scan it with your phone camera and copy the text) or "Add by IBAN" instead.'
+                : 'No readable QR code was found in the image. Upload a clear, uncropped image of the QR, or use "Paste QR text" / "Add by IBAN".',
             previous: $lastError,
         );
     }

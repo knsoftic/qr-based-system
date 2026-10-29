@@ -105,6 +105,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->makeAdmin());
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'Main account',
             'provider' => 'raast',
             'priority' => 10,
@@ -141,6 +142,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->makeAdmin());
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'Random',
             'provider' => 'emvco',
             'activate' => 1,
@@ -162,6 +164,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->makeAdmin());
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'easypaisa',
             'provider' => 'auto',
             'activate' => 1,
@@ -190,6 +193,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->makeAdmin());
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'Shop',
             'provider' => 'auto',
             'qr_image' => $this->qrUpload(DemoSeeder::samplePayload()),
@@ -204,6 +208,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->makeAdmin());
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'Link',
             'provider' => 'auto',
             'qr_image' => $this->qrUpload('https://example.com/pay'),
@@ -221,6 +226,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->makeAdmin());
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'Blank',
             'provider' => 'emvco',
             'qr_image' => UploadedFile::fake()->image('blank.png', 200, 200),
@@ -236,6 +242,7 @@ class AdminPanelTest extends TestCase
         $this->makeAccount();
 
         $this->post(route('admin.accounts.store'), [
+            'method' => 'image',
             'name' => 'Duplicate',
             'provider' => 'raast',
             'qr_image' => $this->qrUpload(DemoSeeder::samplePayload()),

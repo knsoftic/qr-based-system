@@ -150,6 +150,34 @@ class RaastP2pProvider implements QrProvider
         return Crc16::seal(Tlv::encode($items), '10');
     }
 
+    /**
+     * A standard static Raast P2P payload for an IBAN (the layout banking apps
+     * issue): 00 "02", 01 "11", 02 "00", [03 bank name], 04 IBAN, 10 CRC.
+     * Used to add an account when no readable QR image is available.
+     */
+    public function payloadForIban(string $iban, ?string $bankName = null): string
+    {
+        $iban = strtoupper(preg_replace('/[\s-]+/', '', $iban));
+
+        if (! Iban::isValid($iban)) {
+            throw new UnsupportedPayloadException('This is not a valid Pakistani IBAN (format or check digits are wrong).');
+        }
+
+        $items = [
+            ['id' => '00', 'value' => '02'],
+            ['id' => '01', 'value' => '11'],
+            ['id' => '02', 'value' => '00'],
+        ];
+
+        if ($bankName = trim((string) $bankName)) {
+            $items[] = ['id' => '03', 'value' => mb_substr($bankName, 0, 25, 'UTF-8')];
+        }
+
+        $items[] = ['id' => '04', 'value' => $iban];
+
+        return Crc16::seal(Tlv::encode($items), '10');
+    }
+
     public function describe(string $payload): array
     {
         $lookup = function (string $id) {

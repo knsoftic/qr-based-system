@@ -49,6 +49,8 @@
                         @endforeach
                         <dt>Checksum</dt><dd><span class="badge badge--success">CRC {{ $summary['checksum'] ?? '' }}</span></dd>
                         <dt>Decoded at</dt><dd>{{ $account->decoded_at?->format('d M Y, H:i') }}</dd>
+                        <dt>Added from</dt>
+                        <dd>{{ ['image' => 'Uploaded QR image', 'text' => 'Pasted QR text', 'iban' => 'IBAN (standard Raast P2P QR built by the gateway)'][$summary['source'] ?? 'image'] ?? 'Uploaded QR image' }}</dd>
                         @if (! empty($summary['edited_at']))
                             <dt>Edited</dt>
                             <dd>
@@ -69,21 +71,9 @@
             <div class="card-body">
                 <form method="POST" action="{{ route('admin.accounts.qr', $account) }}" enctype="multipart/form-data">
                     @csrf
-                    <div class="form-row">
-                        <label for="provider">Provider</label>
-                        <select id="provider" name="provider">
-                            <option value="auto" @selected(! $account->isDecoded())>Auto-detect (recommended)</option>
-                            @foreach ($providers as $key => $name)
-                                <option value="{{ $key }}" @selected($account->isDecoded() && $account->provider === $key)>{{ $name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <label for="qr_image">QR image</label>
-                        <input id="qr_image" type="file" name="qr_image" accept="image/png,image/jpeg,image/gif,image/webp" required>
-                    </div>
-                    <button type="submit" class="btn btn--primary">Upload &amp; decode</button>
-                    <div class="hint">Uploading a new QR replaces all fields below, including manual edits.</div>
+                    @include('admin.accounts._qr-source', ['providers' => $providers, 'selectedProvider' => $account->isDecoded() ? $account->provider : 'auto'])
+                    <button type="submit" class="btn btn--primary">Replace &amp; verify</button>
+                    <div class="hint">A new QR replaces all fields below, including manual edits.</div>
                 </form>
             </div>
         </div>
