@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateMerchant;
+use App\Http\Middleware\AuthenticateSmsDevice;
 use App\Http\Middleware\AuthenticateVerifier;
 use App\Http\Middleware\EnsureAdminIsActive;
 use App\Http\Middleware\EnsureMerchantPortal;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'merchant.auth' => AuthenticateMerchant::class,
             'merchant.portal' => EnsureMerchantPortal::class,
+            'sms.device' => AuthenticateSmsDevice::class,
             'verifier.auth' => AuthenticateVerifier::class,
             'admin.active' => EnsureAdminIsActive::class,
         ]);

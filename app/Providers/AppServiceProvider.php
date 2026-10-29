@@ -51,6 +51,12 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('verifier-api', fn (Request $request) => Limit::perMinute(120)->by('verifier:'.$request->ip()));
 
+        // SMS forwarder: per device key (hashed) and per IP.
+        RateLimiter::for('sms-device', fn (Request $request) => [
+            Limit::perMinute(300)->by('sms:'.hash('sha256', (string) $request->bearerToken())),
+            Limit::perMinute(600)->by('sms-ip:'.$request->ip()),
+        ]);
+
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(90)->by('checkout:'.$request->ip()));
 
         RateLimiter::for('merchant-login', fn (Request $request) => [

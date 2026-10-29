@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\PaymentAccountController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\SmsController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DocsController;
@@ -87,6 +88,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->name('settings.verifier-key');
 
         Route::get('reports', ReportController::class)->name('reports');
+
+        Route::get('sms', [SmsController::class, 'index'])->name('sms.index');
+        Route::get('sms/devices', [SmsController::class, 'devices'])->name('sms.devices');
+        Route::post('sms/devices', [SmsController::class, 'storeDevice'])->name('sms.devices.store');
+        Route::post('sms/devices/{device}/toggle', [SmsController::class, 'toggleDevice'])->name('sms.devices.toggle');
+        Route::post('sms/devices/{device}/rotate', [SmsController::class, 'rotateDevice'])->name('sms.devices.rotate');
+        Route::get('sms/app.apk', [SmsController::class, 'downloadApp'])->name('sms.app');
 
         Route::get('logs/audit', [LogController::class, 'audit'])->name('logs.audit');
         Route::get('logs/transactions', [LogController::class, 'events'])->name('logs.events');

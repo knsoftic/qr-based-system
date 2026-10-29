@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PKPay SMS Forwarder</string>
+    <string name="subtitle">Forwards every new SMS on this phone to your gateway.</string>
+    <string name="allow_sms">Allow SMS access</string>
+    <string name="server_url">Server URL</string>
+    <string name="device_key">Device key</string>
+    <string name="sender_filter">Only these senders (optional)</string>
+    <string name="sender_filter_hint">Empty = all SMS. E.g. 8558, easypaisa, JazzCash</string>
+    <string name="forwarding_on">Forwarding on</string>
+    <string name="save">Save</string>
+    <string name="test_connection">Test connection</string>
+    <string name="send_test">Send test SMS</string>
+    <string name="battery">Battery settings</string>
+    <string name="recent_sms">Recent SMS</string>
+    <string name="no_sms">No SMS forwarded yet.</string>
+    <string name="saved">Saved</string>
+    <string name="testing">Testing connection…</string>
+    <string name="connection_ok">✓ Connected to the gateway</string>
+    <string name="connection_failed">✗ Connection failed: %1$s</string>
+    <string name="test_sent">Test SMS sent. Check Admin → SMS Inbox.</string>
+    <string name="test_queued">Saved, will be sent when the server is reachable.</string>
+    <string name="error_url">Enter the https:// address of your gateway</string>
+    <string name="error_key">Paste the device key (starts with dk_) from Admin → SMS Devices</string>
+</resources>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\SmsController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,4 +13,10 @@ Route::prefix('v1')->group(function () {
 
     Route::post('verifications', [VerificationController::class, 'store'])
         ->middleware(['throttle:verifier-api', 'verifier.auth']);
+
+    // Android SMS forwarder app.
+    Route::middleware(['throttle:sms-device', 'sms.device'])->group(function () {
+        Route::post('sms', [SmsController::class, 'store']);
+        Route::post('sms/ping', [SmsController::class, 'ping']);
+    });
 });

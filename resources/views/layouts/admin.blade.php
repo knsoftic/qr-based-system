@@ -44,6 +44,10 @@
                 <a href="{{ route($route) }}" @class(['active' => $active])><x-icon :name="$icon" /> {{ $label }}</a>
             @endforeach
 
+            <div class="nav-section">SMS forwarder</div>
+            <a href="{{ route('admin.sms.index') }}" @class(['active' => request()->routeIs('admin.sms.index')])><x-icon name="message" /> SMS Inbox</a>
+            <a href="{{ route('admin.sms.devices') }}" @class(['active' => request()->routeIs('admin.sms.devices')])><x-icon name="phone" /> SMS Devices</a>
+
             <div class="nav-section">Settings</div>
             @foreach ($settings as [$key, $label, $icon])
                 <a href="{{ route('admin.settings.edit', $key) }}" @class(['active' => request()->routeIs('admin.settings.*') && ($tab ?? 'payin') === $key])><x-icon :name="$icon" /> {{ $label }}</a>
