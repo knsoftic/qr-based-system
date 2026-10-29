@@ -25,6 +25,48 @@ use DateTimeInterface;
  */
 class EmvcoMpmProvider implements QrProvider
 {
+    use DescribesFields;
+
+    /**
+     * tag => [name, what it does, what the gateway does with it]
+     * behaviour: fixed (copied unchanged) | editable | per_payment | checksum | removed
+     */
+    private const FIELDS = [
+        '00' => ['Payload format indicator', 'Version of the EMVCo QR format. Always "01".', 'fixed'],
+        '01' => ['Point of initiation', '"11" = static QR (reusable), "12" = dynamic QR (one payment, amount fixed).', 'per_payment'],
+        '52' => ['Merchant category code (MCC)', 'ISO 18245 code for the type of business, e.g. 5999 = retail.', 'fixed'],
+        '53' => ['Transaction currency', 'ISO 4217 numeric currency, e.g. 586 = PKR.', 'fixed'],
+        '54' => ['Transaction amount', 'Amount the payer must pay.', 'per_payment'],
+        '55' => ['Tip or convenience indicator', 'Asks the payer for a tip / fee. Removed so the amount stays exact.', 'removed'],
+        '56' => ['Convenience fee (fixed)', 'Fixed fee added by the merchant. Removed so the amount stays exact.', 'removed'],
+        '57' => ['Convenience fee (percent)', 'Percentage fee added by the merchant. Removed so the amount stays exact.', 'removed'],
+        '58' => ['Country code', 'ISO 3166 country of the merchant, e.g. PK.', 'fixed'],
+        '59' => ['Merchant name', 'Name shown to the payer in the banking app (max 25 characters).', 'editable'],
+        '60' => ['Merchant city', 'City shown to the payer (max 15 characters).', 'editable'],
+        '61' => ['Postal code', 'Merchant postal code.', 'fixed'],
+        '62' => ['Additional data', 'Template with references and labels (sub-fields below).', 'per_payment'],
+        '63' => ['CRC checksum', 'Check value over everything before it. Detects a damaged or edited QR.', 'checksum'],
+        '64' => ['Merchant info (other language)', 'Template with the merchant name / city in another language.', 'fixed'],
+    ];
+
+    private const ADDITIONAL_DATA = [
+        '01' => ['Bill number', 'Invoice or bill number.', 'fixed'],
+        '02' => ['Mobile number', 'Mobile number for top-ups / bills.', 'fixed'],
+        '03' => ['Store label', 'Store or branch identifier.', 'fixed'],
+        '04' => ['Loyalty number', 'Loyalty card number.', 'fixed'],
+        '05' => ['Reference label', 'Reference of the payment. The gateway writes each payment\'s transaction ID here.', 'per_payment'],
+        '06' => ['Customer label', 'Customer identifier.', 'fixed'],
+        '07' => ['Terminal label', 'Terminal / till identifier.', 'fixed'],
+        '08' => ['Purpose of transaction', 'Why the payment is made.', 'fixed'],
+        '09' => ['Additional consumer data request', 'Data the app should ask the payer for.', 'fixed'],
+    ];
+
+    private const LANGUAGE_TEMPLATE = [
+        '00' => ['Language preference', 'ISO 639 language code.', 'fixed'],
+        '01' => ['Merchant name (alternate language)', 'Merchant name in that language.', 'fixed'],
+        '02' => ['Merchant city (alternate language)', 'Merchant city in that language.', 'fixed'],
+    ];
+
     private const MANDATORY = [
         '52' => 'Merchant Category Code',
         '53' => 'Transaction Currency',
@@ -131,6 +173,51 @@ class EmvcoMpmProvider implements QrProvider
         $items = Tlv::put($items, '62', $this->additionalDataWithReference(Tlv::find($items, '62'), $reference));
 
         return Crc16::seal(Tlv::encode($items));
+    }
+
+    public function describe(string $payload): array
+    {
+        $lookup = function (string $id) {
+            $tag = (int) $id;
+
+            return self::FIELDS[$id] ?? match (true) {
+                $tag >= 2 && $tag <= 25 => ['Card scheme account', 'Merchant identifier for a card scheme (Visa, Mastercard, UnionPay...).', 'fixed'],
+                $tag >= 26 && $tag <= 51 => ['Merchant account information', 'Template identifying the receiving account (sub-fields below).', 'fixed'],
+                $tag >= 80 => ['Unreserved template', 'Scheme or bank specific data.', 'fixed'],
+                default => ['Reserved field '.$id, 'Reserved for future EMVCo use.', 'fixed'],
+            };
+        };
+
+        $children = function (string $id) {
+            $tag = (int) $id;
+
+            return match (true) {
+                $id === '62' => self::ADDITIONAL_DATA,
+                $id === '64' => self::LANGUAGE_TEMPLATE,
+                ($tag >= 26 && $tag <= 51) || $tag >= 80 => [
+                    '00' => ['Globally unique identifier', 'Identifies the payment scheme / network of this account.', 'fixed'],
+                    '01' => ['Account / merchant identifier', 'Account number, IBAN or merchant ID within that scheme (set by the acquirer, not editable).', 'fixed'],
+                ],
+                default => [],
+            };
+        };
+
+        return $this->missingEditableRows($this->rows(Tlv::parse($payload), $lookup, $children), $lookup);
+    }
+
+    public function editableFields(): array
+    {
+        return [
+            '59' => ['label' => 'Merchant name', 'max' => 25, 'required' => true, 'help' => 'Shown to the payer in the banking app.'],
+            '60' => ['label' => 'Merchant city', 'max' => 15, 'required' => true, 'help' => 'Shown to the payer.'],
+        ];
+    }
+
+    public function applyEdits(array $template, array $values): string
+    {
+        $items = $this->editItems($template['items'] ?? [], $values, fn (string $tag, string $value) => $value);
+
+        return Crc16::seal(Tlv::encode(Tlv::without($items, ['63'])));
     }
 
     private function additionalDataWithReference(?string $additional, string $reference): string

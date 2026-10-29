@@ -3,7 +3,16 @@
 @section('title', $account->name)
 
 @section('content')
-    @php($summary = $account->payload_summary ?? [])
+    @php
+        $summary = $account->payload_summary ?? [];
+        $behaviours = [
+            'fixed' => ['Copied as-is', 'inactive', 'Kept exactly as in the uploaded QR.'],
+            'editable' => ['Editable', 'warning', 'You can change it below; copied as-is into every payment.'],
+            'per_payment' => ['Set per payment', 'info', 'The gateway writes a new value into every payment\'s QR.'],
+            'checksum' => ['Recalculated', 'info', 'Computed again for every QR the gateway builds.'],
+            'removed' => ['Removed', 'danger', 'Left out of payment QRs so the amount stays exact.'],
+        ];
+    @endphp
 
     <div class="page-head">
         <div>
@@ -31,7 +40,7 @@
 
     <div class="grid grid-2">
         <div class="card">
-            <div class="card-head"><h2>Decoded payload</h2></div>
+            <div class="card-head"><h2>QR summary</h2></div>
             <div class="card-body">
                 @if ($account->isDecoded())
                     <dl class="kv">
@@ -40,65 +49,108 @@
                         @endforeach
                         <dt>Checksum</dt><dd><span class="badge badge--success">CRC {{ $summary['checksum'] ?? '' }}</span></dd>
                         <dt>Decoded at</dt><dd>{{ $account->decoded_at?->format('d M Y, H:i') }}</dd>
+                        @if (! empty($summary['edited_at']))
+                            <dt>Edited</dt>
+                            <dd>
+                                <span class="badge badge--warning">Manually edited</span>
+                                {{ \Illuminate\Support\Carbon::parse($summary['edited_at'])->format('d M Y, H:i') }}
+                                (fields {{ implode(', ', $summary['edited_tags'] ?? []) }}). See the audit log for old values.
+                            </dd>
+                        @endif
                     </dl>
-
-                    <h3 style="margin-top: 1.25rem">Account identifiers (masked)</h3>
-                    @foreach ($summary['accounts'] ?? [] as $acc)
-                        <div class="muted" style="margin-bottom: .4rem">
-                            Tag {{ $acc['tag'] }}@if ($acc['gui']) · <span class="mono">{{ $acc['gui'] }}</span>@endif
-                            @foreach ($acc['identifiers'] as $sub => $value)
-                                <div class="mono">{{ $sub }}: {{ $value }}</div>
-                            @endforeach
-                        </div>
-                    @endforeach
                 @else
-                    <p class="muted">No verified payload. Upload a valid authorized QR below.</p>
+                    <p class="muted">No verified payload. Upload a valid authorized QR.</p>
                 @endif
             </div>
         </div>
 
-        <div>
-            @if ($account->isDecoded())
-                <div class="card">
-                    <div class="card-head"><h2>Payload template</h2></div>
-                    <div class="card-body">
-                        <p class="muted">Fields changed for each payment (per provider rules):</p>
-                        <dl class="kv">
-                            @foreach ($summary['dynamic_fields'] ?? [] as $tag => $label)
-                                <dt class="mono">{{ $tag }}</dt><dd>{{ $label }}</dd>
+        <div class="card">
+            <div class="card-head"><h2>{{ $account->qr_image_path ? 'Replace QR' : 'Upload QR' }}</h2></div>
+            <div class="card-body">
+                <form method="POST" action="{{ route('admin.accounts.qr', $account) }}" enctype="multipart/form-data">
+                    @csrf
+                    <div class="form-row">
+                        <label for="provider">Provider</label>
+                        <select id="provider" name="provider">
+                            <option value="auto" @selected(! $account->isDecoded())>Auto-detect (recommended)</option>
+                            @foreach ($providers as $key => $name)
+                                <option value="{{ $key }}" @selected($account->isDecoded() && $account->provider === $key)>{{ $name }}</option>
                             @endforeach
-                            <dt>Date / time</dt>
-                            <dd class="muted">{{ $summary['datetime_field'] ?? 'Not part of this format; not written.' }}</dd>
-                        </dl>
-                        <p class="muted" style="margin-top: .75rem">All other fields are copied unchanged. The original payload is stored encrypted and is never shown to customers.</p>
+                        </select>
                     </div>
-                </div>
-            @endif
-
-            <div class="card">
-                <div class="card-head"><h2>{{ $account->qr_image_path ? 'Replace QR' : 'Upload QR' }}</h2></div>
-                <div class="card-body">
-                    <form method="POST" action="{{ route('admin.accounts.qr', $account) }}" enctype="multipart/form-data">
-                        @csrf
-                        <div class="form-row">
-                            <label for="provider">Provider</label>
-                            <select id="provider" name="provider">
-                                <option value="auto" @selected(! $account->isDecoded())>Auto-detect (recommended)</option>
-                                @foreach ($providers as $key => $name)
-                                    <option value="{{ $key }}" @selected($account->isDecoded() && $account->provider === $key)>{{ $name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="form-row">
-                            <label for="qr_image">QR image</label>
-                            <input id="qr_image" type="file" name="qr_image" accept="image/png,image/jpeg,image/gif,image/webp" required>
-                        </div>
-                        <button type="submit" class="btn btn--primary">Upload &amp; decode</button>
-                    </form>
-                </div>
+                    <div class="form-row">
+                        <label for="qr_image">QR image</label>
+                        <input id="qr_image" type="file" name="qr_image" accept="image/png,image/jpeg,image/gif,image/webp" required>
+                    </div>
+                    <button type="submit" class="btn btn--primary">Upload &amp; decode</button>
+                    <div class="hint">Uploading a new QR replaces all fields below, including manual edits.</div>
+                </form>
             </div>
         </div>
     </div>
+
+    @if ($account->isDecoded())
+        <div class="card" id="decoded">
+            <div class="card-head">
+                <h2>Decoded QR data</h2>
+                <span class="muted">{{ count($fields) }} fields · admin only, never shown to customers</span>
+            </div>
+
+            <form method="POST" action="{{ route('admin.accounts.payload', $account) }}">
+                @csrf
+                @method('PUT')
+                <div class="table-wrap">
+                    <table class="decoded-table">
+                        <thead>
+                        <tr>
+                            <th>Tag</th>
+                            <th>Field</th>
+                            <th>What it does</th>
+                            <th>Value</th>
+                            <th>On each payment</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach ($fields as $row)
+                            @include('admin.accounts._field-row', ['row' => $row, 'depth' => 0])
+                            @foreach ($row['children'] as $child)
+                                @include('admin.accounts._field-row', ['row' => $child, 'depth' => 1])
+                            @endforeach
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if ($editable)
+                    <div class="card-body decoded-save">
+                        <div class="filters">
+                            <div class="form-row">
+                                <label for="payload_password">Your admin password</label>
+                                <input id="payload_password" type="password" name="password" required autocomplete="current-password">
+                            </div>
+                            <button type="submit" class="btn btn--primary">Save changes</button>
+                        </div>
+                        <p class="hint mb-0">
+                            Only the <span class="badge badge--warning">Editable</span> fields can change. The QR data is rebuilt, its checksum recalculated and
+                            verified before saving, and the change is written to the audit log. New payments use it; QR codes already shown keep the old data.
+                        </p>
+                    </div>
+                @endif
+            </form>
+
+            <div class="card-body" style="border-top: 1px solid var(--border)">
+                <details>
+                    <summary class="muted">Raw payload ({{ strlen($account->raw_payload) }} characters)</summary>
+                    <pre class="json" style="white-space: pre-wrap; word-break: break-all">{{ $account->raw_payload }}</pre>
+                </details>
+                <dl class="kv" style="margin-top: .75rem">
+                    @foreach ($behaviours as [$label, $badge, $meaning])
+                        <dt><span class="badge badge--{{ $badge }}">{{ $label }}</span></dt><dd class="muted">{{ $meaning }}</dd>
+                    @endforeach
+                </dl>
+            </div>
+        </div>
+    @endif
 
     <div class="card">
         <div class="card-head">

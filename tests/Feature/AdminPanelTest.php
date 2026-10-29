@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Merchant;
 use App\Models\Payment;
 use App\Models\PaymentAccount;
+use App\Payments\Raast\Iban;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -107,9 +108,13 @@ class AdminPanelTest extends TestCase
         $raw = \DB::table('payment_accounts')->value('raw_payload');
         $this->assertStringNotContainsString('PK00DEMO', $raw);
 
+        // The admin account page shows the full decoded data (to check / edit it) ...
         $this->get(route('admin.accounts.show', $account))
             ->assertSee('Decoded')
-            ->assertDontSee('PK00DEMO0000001234567890');
+            ->assertSee('PK00DEMO0000001234567890');
+
+        // ... the accounts list does not.
+        $this->get(route('admin.accounts.index'))->assertDontSee('PK00DEMO0000001234567890');
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'account.created', 'auditable_id' => $account->id]);
     }
@@ -154,6 +159,11 @@ class AdminPanelTest extends TestCase
 
         $this->get(route('admin.accounts.show', $account))
             ->assertSee('Raast P2P')
+            ->assertSee('TMFB')
+            ->assertSee(Iban::make('TMFB0000001234567890'));
+
+        // The list shows the IBAN masked.
+        $this->get(route('admin.accounts.index'))
             ->assertSee('TMFB')
             ->assertDontSee('1234567890');
     }

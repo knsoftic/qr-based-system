@@ -286,6 +286,17 @@ input:focus, select:focus, textarea:focus {
 .fieldset legend { font-weight: 700; padding: 0 .35rem; }
 textarea.mono { font-family: var(--mono); font-size: .85rem; }
 details summary { cursor: pointer; }
+
+.decoded-table td { vertical-align: middle; }
+.decoded-table .decoded-sub td:first-child { padding-left: 2rem; }
+.decoded-table .decoded-sub td { background: var(--surface-2); }
+.decoded-table .decoded-missing td { opacity: .8; }
+.decoded-table td:nth-child(3) { min-width: 300px; }
+.decoded-table td:nth-child(5) { white-space: nowrap; }
+.decoded-value { min-width: 230px; }
+.decoded-value .mono { overflow-wrap: anywhere; }
+.decoded-value input { width: 100%; min-width: 230px; }
+.decoded-save { border-top: 1px solid var(--border); }
 .checkbox input { width: auto; }
 
 .field-error { color: var(--danger); font-size: .8rem; margin-top: .25rem; }

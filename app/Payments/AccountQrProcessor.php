@@ -77,6 +77,42 @@ class AccountQrProcessor
     }
 
     /**
+     * Change admin-editable fields (e.g. the IBAN) of a decoded account. The
+     * adapter rebuilds the payload with a new checksum, and the result must
+     * pass the same verification as an uploaded QR before it is saved.
+     *
+     * @param  array<string, ?string>  $changes  tag => new value
+     *
+     * @throws UnsupportedPayloadException
+     */
+    public function edit(PaymentAccount $account, array $changes): PaymentAccount
+    {
+        $provider = $this->providers->make($account->provider);
+        $payload = $provider->applyEdits($account->payload_template, $changes);
+        $hash = hash('sha256', $payload);
+
+        $duplicate = PaymentAccount::query()->where('payload_hash', $hash)->whereKeyNot($account->getKey())->first();
+        if ($duplicate) {
+            throw new UnsupportedPayloadException("Account \"{$duplicate->name}\" already uses exactly this QR data.");
+        }
+
+        $parsed = $provider->inspect($payload);
+        $previous = $account->payload_summary['edited_tags'] ?? [];
+
+        $account->forceFill([
+            'raw_payload' => $payload,
+            'payload_template' => $parsed->template,
+            'payload_hash' => $hash,
+            'payload_summary' => $parsed->summary + [
+                'edited_at' => now()->toIso8601String(),
+                'edited_tags' => array_values(array_unique([...$previous, ...array_map('strval', array_keys($changes))])),
+            ],
+        ])->save();
+
+        return $account;
+    }
+
+    /**
      * One named provider, or (auto) every provider in config order until one verifies.
      *
      * @return array{0: string, 1: ParsedPayload}

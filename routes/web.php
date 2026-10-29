@@ -60,6 +60,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('accounts/{account}/edit', [PaymentAccountController::class, 'edit'])->name('accounts.edit');
         Route::put('accounts/{account}', [PaymentAccountController::class, 'update'])->name('accounts.update');
         Route::post('accounts/{account}/qr', [PaymentAccountController::class, 'uploadQr'])->name('accounts.qr');
+        Route::put('accounts/{account}/payload', [PaymentAccountController::class, 'updatePayload'])->name('accounts.payload');
         Route::post('accounts/{account}/toggle', [PaymentAccountController::class, 'toggle'])->name('accounts.toggle');
 
         Route::get('merchants', [MerchantController::class, 'index'])->name('merchants.index');

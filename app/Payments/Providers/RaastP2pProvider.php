@@ -25,7 +25,25 @@ use DateTimeInterface;
  */
 class RaastP2pProvider implements QrProvider
 {
+    use DescribesFields;
+
     private const KNOWN_TAGS = ['00', '01', '02', '03', '04', '05', '06', '07', '10'];
+
+    /**
+     * tag => [name, what it does, what the gateway does with it]
+     * behaviour: fixed (copied unchanged) | editable | per_payment | checksum
+     */
+    private const FIELDS = [
+        '00' => ['Format version', 'Version of the Raast QR standard. Always "02" for a Raast P2P QR.', 'fixed'],
+        '01' => ['Point of initiation', '"11" = static QR (reusable, payer types the amount). "12" = dynamic QR (one payment, amount fixed).', 'per_payment'],
+        '02' => ['Scheme identifier', 'Payment scheme. Banking apps (easypaisa, JazzCash, banks) use "00".', 'fixed'],
+        '03' => ['Bank / wallet name', 'Optional name of the receiving bank or wallet shown to the payer (max 25 characters).', 'editable'],
+        '04' => ['IBAN (receiving account)', 'The account that receives the money. Every payment made with this QR is credited to this IBAN.', 'editable'],
+        '05' => ['Amount (PKR)', 'Amount the payer must send. Filled in by the banking app; the payer cannot change it.', 'per_payment'],
+        '06' => ['Particulars', 'Optional payment description shown to the payer and on the statement (max 30 characters).', 'editable'],
+        '07' => ['Expiry date / time', 'After this moment banking apps refuse the QR. Format DDMMYYYYHHMM, Pakistan time.', 'per_payment'],
+        '10' => ['CRC checksum', 'Check value over everything before it. Detects a damaged or edited QR.', 'checksum'],
+    ];
 
     private const SCHEMES = ['00', '30'];
 
@@ -130,6 +148,57 @@ class RaastP2pProvider implements QrProvider
         $items = Tlv::put($items, '07', $expiry->format('dmYHi'));
 
         return Crc16::seal(Tlv::encode($items), '10');
+    }
+
+    public function describe(string $payload): array
+    {
+        $lookup = function (string $id) {
+            if ($id === '06' && $this->writesReference()) {
+                return ['Particulars', 'Payment description. The gateway writes each payment\'s transaction ID here.', 'per_payment'];
+            }
+
+            return self::FIELDS[$id] ?? ['Unknown field '.$id, 'Not part of the Raast P2P standard.', 'fixed'];
+        };
+
+        return $this->missingEditableRows($this->rows(Tlv::parse($payload), $lookup, fn () => []), $lookup);
+    }
+
+    public function editableFields(): array
+    {
+        $fields = [
+            '03' => ['label' => 'Bank / wallet name', 'max' => 25, 'required' => false, 'help' => 'Optional. Leave empty to remove.'],
+            '04' => ['label' => 'IBAN', 'max' => 24, 'required' => true, 'help' => '24 characters, e.g. PK36SCBL0000001123456702. Check digits are verified.'],
+            '06' => ['label' => 'Particulars', 'max' => 30, 'required' => false, 'help' => 'Optional. Leave empty to remove.'],
+        ];
+
+        if ($this->writesReference()) {
+            unset($fields['06']);
+        }
+
+        return $fields;
+    }
+
+    private function writesReference(): bool
+    {
+        return ! empty($this->rules['particulars_reference']);
+    }
+
+    public function applyEdits(array $template, array $values): string
+    {
+        $items = $this->editItems($template['items'] ?? [], $values, function (string $tag, string $value) {
+            if ($tag !== '04') {
+                return $value;
+            }
+
+            $iban = strtoupper(preg_replace('/[\s-]+/', '', $value));
+            if (! Iban::isValid($iban)) {
+                throw new UnsupportedPayloadException('This is not a valid Pakistani IBAN (format or check digits are wrong).');
+            }
+
+            return $iban;
+        });
+
+        return Crc16::seal(Tlv::encode(Tlv::without($items, ['10'])), '10');
     }
 
     /**
