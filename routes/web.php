@@ -64,6 +64,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('accounts/{account}/qr', [PaymentAccountController::class, 'uploadQr'])->name('accounts.qr');
         Route::put('accounts/{account}/payload', [PaymentAccountController::class, 'updatePayload'])->name('accounts.payload');
         Route::post('accounts/{account}/toggle', [PaymentAccountController::class, 'toggle'])->name('accounts.toggle');
+        Route::post('accounts/{account}/maintenance', [PaymentAccountController::class, 'maintenance'])->name('accounts.maintenance');
+        Route::delete('accounts/{account}', [PaymentAccountController::class, 'destroy'])->name('accounts.destroy');
 
         Route::get('merchants', [MerchantController::class, 'index'])->name('merchants.index');
         Route::get('merchants/create', [MerchantController::class, 'create'])->name('merchants.create');

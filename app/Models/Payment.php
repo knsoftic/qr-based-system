@@ -62,7 +62,8 @@ class Payment extends Model
 
     public function account(): BelongsTo
     {
-        return $this->belongsTo(PaymentAccount::class, 'payment_account_id');
+        // withTrashed: a deleted account's name still shows in payment history.
+        return $this->belongsTo(PaymentAccount::class, 'payment_account_id')->withTrashed();
     }
 
     public function events(): HasMany

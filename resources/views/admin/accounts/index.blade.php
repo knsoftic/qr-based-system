@@ -9,9 +9,13 @@
             <p>Authorized QR codes that receive payments. Customers never see which account is used.</p>
         </div>
         <div class="actions">
-            <a href="{{ route('admin.accounts.create') }}" class="btn btn--primary">+ Add account</a>
+            <a href="{{ route('admin.accounts.create') }}" class="btn btn--primary"><x-icon name="plus" :size="16" /> Add account</a>
         </div>
     </div>
+
+    @if ($usableCount === 0 && $accounts->total() > 0)
+        <div class="alert alert--warning">No account can accept payments right now (all disabled, in maintenance or over their limit). New payment requests will be rejected until one is available.</div>
+    @endif
 
     <div class="card">
         <div class="table-wrap">
@@ -20,10 +24,8 @@
                 <tr>
                     <th>Account</th>
                     <th>Provider</th>
-                    <th>QR decode status</th>
-                    <th class="num">Priority</th>
-                    <th class="num">Paid today</th>
-                    <th class="num">Daily limit</th>
+                    <th class="num">Today / limit</th>
+                    <th class="num">This month / limit</th>
                     <th>Last used</th>
                     <th>State</th>
                     <th></th>
@@ -31,6 +33,7 @@
                 </thead>
                 <tbody>
                 @forelse ($accounts as $account)
+                    @php($reason = $account->maintenanceReason())
                     <tr>
                         <td>
                             <a href="{{ route('admin.accounts.show', $account) }}"><strong>{{ $account->name }}</strong></a>
@@ -38,28 +41,34 @@
                                 <div class="muted" style="font-size: .8rem">{{ $account->payload_summary['label'] ?? $account->payload_summary['merchant_name'] ?? '' }}</div>
                             @endif
                         </td>
-                        <td>{{ $account->providerName() }}</td>
-                        <td><span class="badge badge--{{ $account->decode_status->value }}">{{ $account->decode_status->label() }}</span></td>
-                        <td class="num">{{ $account->priority }}</td>
-                        <td class="num">{{ $account->paid_today }} · {{ number_format((float) $account->volume_today, 2) }}</td>
-                        <td class="num">{{ $account->daily_limit !== null ? number_format($account->daily_limit, 2) : '—' }}</td>
-                        <td class="nowrap">{{ $account->last_used_at?->diffForHumans() ?? 'Never' }}</td>
                         <td>
-                            <span class="badge badge--{{ $account->is_active ? 'active' : 'inactive' }}">{{ $account->is_active ? 'Active' : 'Disabled' }}</span>
+                            {{ $account->providerName() }}
+                            <div><span class="badge badge--{{ $account->decode_status->value }}">{{ $account->decode_status->label() }}</span></div>
                         </td>
-                        <td class="text-right">
-                            <form method="POST" action="{{ route('admin.accounts.toggle', $account) }}" class="inline-form">
-                                @csrf
-                                <button type="submit" class="btn btn--sm {{ $account->is_active ? 'btn--danger' : '' }}">
-                                    {{ $account->is_active ? 'Disable' : 'Enable' }}
-                                </button>
-                            </form>
+                        <td class="num">
+                            {{ number_format($account->usedToday(), 0) }}
+                            <span class="muted">/ {{ $account->daily_limit !== null ? number_format($account->daily_limit, 0) : '∞' }}</span>
+                        </td>
+                        <td class="num">
+                            {{ number_format($account->usedThisMonth(), 0) }}
+                            <span class="muted">/ {{ $account->monthly_limit !== null ? number_format($account->monthly_limit, 0) : '∞' }}</span>
+                        </td>
+                        <td class="nowrap">{{ $account->last_used_at?->diffForHumans() ?? 'Never' }}</td>
+                        <td class="nowrap">
+                            @if ($reason)
+                                <span class="badge badge--{{ $account->is_active && $account->isDecoded() ? 'warning' : 'inactive' }}">{{ $reason }}</span>
+                            @else
+                                <span class="badge badge--active">Live</span>
+                            @endif
+                        </td>
+                        <td class="text-right nowrap">
+                            <a href="{{ route('admin.accounts.show', $account) }}" class="btn btn--sm">Manage</a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="empty">
-                            No payment accounts yet. <a href="{{ route('admin.accounts.create') }}">Upload your first authorized QR</a>.
+                        <td colspan="7" class="empty">
+                            No payment accounts yet. <a href="{{ route('admin.accounts.create') }}">Add your first authorized QR</a>.
                         </td>
                     </tr>
                 @endforelse

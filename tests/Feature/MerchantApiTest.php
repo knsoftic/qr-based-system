@@ -189,10 +189,43 @@ class MerchantApiTest extends TestCase
     public function test_daily_limits_are_respected(): void
     {
         [$merchant, $secret] = $this->makeMerchant();
-        $this->makeAccount(attributes: ['daily_limit' => 1000]);
+        $account = $this->makeAccount(attributes: ['daily_limit' => 1000]);
 
-        $this->createPayment($merchant, $secret, ['amount' => 800, 'order_id' => 'L-1'])->assertCreated();
+        // Received (paid) money counts toward the limit, not pending requests.
+        $this->createPayment($merchant, $secret, ['amount' => 900, 'order_id' => 'L-1'])->assertCreated();
+        \App\Models\Payment::query()->where('order_id', 'L-1')->update(['status' => 'paid', 'paid_at' => now()]);
+
+        // 900 of 1000 used: a 300 payment would exceed it -> no account available.
         $this->createPayment($merchant, $secret, ['amount' => 300, 'order_id' => 'L-2'])->assertStatus(503);
+        // A 100 payment still fits.
+        $this->createPayment($merchant, $secret, ['amount' => 100, 'order_id' => 'L-3'])->assertCreated();
+
+        // Reaching the limit puts the account in maintenance.
+        \App\Models\Payment::query()->where('order_id', 'L-3')->update(['status' => 'paid', 'paid_at' => now()]);
+        $this->assertSame('Daily limit reached', $account->fresh()->maintenanceReason());
+    }
+
+    public function test_monthly_limits_are_respected(): void
+    {
+        [$merchant, $secret] = $this->makeMerchant();
+        $account = $this->makeAccount(attributes: ['monthly_limit' => 2000]);
+
+        $this->createPayment($merchant, $secret, ['amount' => 2000, 'order_id' => 'M-1'])->assertCreated();
+        \App\Models\Payment::query()->where('order_id', 'M-1')->update(['status' => 'paid', 'paid_at' => now()]);
+
+        $this->createPayment($merchant, $secret, ['amount' => 600, 'order_id' => 'M-2'])->assertStatus(503);
+        $this->assertSame('Monthly limit reached', $account->fresh()->maintenanceReason());
+    }
+
+    public function test_an_account_in_maintenance_is_skipped(): void
+    {
+        [$merchant, $secret] = $this->makeMerchant();
+        $account = $this->makeAccount(attributes: ['maintenance' => true]);
+
+        $this->createPayment($merchant, $secret)->assertStatus(503);
+
+        $account->forceFill(['maintenance' => false])->save();
+        $this->createPayment($merchant, $secret, ['order_id' => 'OK'])->assertCreated();
     }
 
     public function test_merchants_can_only_read_their_own_payments(): void

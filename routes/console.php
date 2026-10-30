@@ -69,7 +69,46 @@ Artisan::command('gateway:create-admin {email} {--name=Administrator}
     $this->info("Admin {$email} is ready. Sign in at ".route('admin.login'));
 })->purpose('Create or reset an admin user');
 
+Artisan::command('accounts:close-month {--month= : YYYY-MM to snapshot (default: last month)}', function () {
+    $when = $this->option('month')
+        ? \Illuminate\Support\Carbon::createFromFormat('Y-m', $this->option('month'))->startOfMonth()
+        : now()->subMonthNoOverflow()->startOfMonth();
+    [$from, $to] = [$when->copy(), $when->copy()->endOfMonth()];
+    $saved = 0;
+
+    App\Models\PaymentAccount::withTrashed()->orderBy('id')->each(function ($account) use ($from, $to, $when, &$saved) {
+        $row = $account->payments()
+            ->whereBetween('created_at', [$from, $to])
+            ->selectRaw('COUNT(*) attempts')
+            ->selectRaw("SUM(status='paid') verified")
+            ->selectRaw("SUM(status='expired') expired")
+            ->selectRaw("SUM(status='failed') failed")
+            ->selectRaw("SUM(CASE WHEN status='paid' THEN amount ELSE 0 END) received")
+            ->selectRaw("SUM(CASE WHEN status='paid' THEN fee_amount ELSE 0 END) fees")
+            ->selectRaw("SUM(CASE WHEN status='paid' THEN net_amount ELSE 0 END) net")
+            ->first();
+
+        if (! $row->attempts) {
+            return;
+        }
+
+        App\Models\AccountMonthlyStat::query()->updateOrCreate(
+            ['payment_account_id' => $account->id, 'year' => $when->year, 'month' => $when->month],
+            [
+                'attempts' => (int) $row->attempts, 'verified' => (int) $row->verified,
+                'expired' => (int) $row->expired, 'failed' => (int) $row->failed,
+                'received' => (float) $row->received, 'fees' => (float) $row->fees, 'net' => (float) $row->net,
+            ],
+        );
+        $saved++;
+    });
+
+    $this->info("Snapshotted {$saved} account(s) for {$when->format('M Y')}. Limits reset automatically for the new month.");
+})->purpose('Snapshot last month per-account totals (history); monthly limits reset on the 1st');
+
 // onOneServer(): if schedule:run is triggered twice in the same minute (e.g. an
 // aaPanel cron task and a crontab entry), each task still runs only once.
 Schedule::command('payments:expire')->everyMinute()->withoutOverlapping()->onOneServer();
 Schedule::command('payments:retry-callbacks')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+// 1st of each month, just after midnight (Asia/Karachi): snapshot last month.
+Schedule::command('accounts:close-month')->monthlyOn(1, '00:05')->timezone('Asia/Karachi')->onOneServer();

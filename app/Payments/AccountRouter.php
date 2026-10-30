@@ -26,13 +26,15 @@ class AccountRouter
 
     public function select(string $amount): ?PaymentAccount
     {
-        $accounts = PaymentAccount::query()->usable()->get();
+        // Active, decoded, not in maintenance, and within its daily + monthly
+        // limits for this amount. Accounts over a limit are "in maintenance".
+        $accounts = PaymentAccount::query()->usable()->get()
+            ->filter(fn (PaymentAccount $account) => $account->canAccept((float) $amount))
+            ->values();
 
         if ($accounts->isEmpty()) {
             return null;
         }
-
-        $accounts = $this->withinDailyLimit($accounts, (float) $amount);
 
         // Prefer accounts with no open payment of the same amount, so an
         // incoming bank credit can be matched to exactly one payment.
@@ -46,6 +48,8 @@ class AccountRouter
         $free = $accounts->reject(fn (PaymentAccount $account) => in_array($account->id, $busy, true));
         $pool = $free->isNotEmpty() ? $free : $accounts;
 
+        // One account -> use it; several -> pick per the routing strategy
+        // (random by default), so payments spread across different accounts.
         $chosen = $this->order($pool)->first();
 
         if ($chosen) {
@@ -53,31 +57,6 @@ class AccountRouter
         }
 
         return $chosen;
-    }
-
-    private function withinDailyLimit(Collection $accounts, float $amount): Collection
-    {
-        $limited = $accounts->filter(fn (PaymentAccount $account) => $account->daily_limit !== null);
-
-        if ($limited->isEmpty()) {
-            return $accounts;
-        }
-
-        $usedToday = Payment::query()
-            ->whereIn('payment_account_id', $limited->pluck('id'))
-            ->whereIn('status', [PaymentStatus::Paid->value, PaymentStatus::Pending->value])
-            ->where('created_at', '>=', now()->startOfDay())
-            ->groupBy('payment_account_id')
-            ->selectRaw('payment_account_id, SUM(amount) as total')
-            ->pluck('total', 'payment_account_id');
-
-        return $accounts->filter(function (PaymentAccount $account) use ($usedToday, $amount) {
-            if ($account->daily_limit === null) {
-                return true;
-            }
-
-            return ((float) ($usedToday[$account->id] ?? 0)) + $amount <= (float) $account->daily_limit;
-        })->values();
     }
 
     private function order(Collection $accounts): Collection

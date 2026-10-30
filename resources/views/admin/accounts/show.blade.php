@@ -14,28 +14,73 @@
         ];
     @endphp
 
+    @php($reason = $account->maintenanceReason())
+
     <div class="page-head">
         <div>
             <h1>{{ $account->name }}</h1>
             <p>
                 {{ $account->providerName() }} ·
                 <span class="badge badge--{{ $account->decode_status->value }}">{{ $account->decode_status->label() }}</span>
-                <span class="badge badge--{{ $account->is_active ? 'active' : 'inactive' }}">{{ $account->is_active ? 'Active' : 'Disabled' }}</span>
+                @if ($reason)
+                    <span class="badge badge--warning">{{ $reason }}</span>
+                @else
+                    <span class="badge badge--active">Live</span>
+                @endif
             </p>
         </div>
         <div class="actions">
             <a href="{{ route('admin.accounts.edit', $account) }}" class="btn">Edit</a>
+            <form method="POST" action="{{ route('admin.accounts.maintenance', $account) }}" class="inline-form">
+                @csrf
+                <button type="submit" class="btn">{{ $account->maintenance ? 'End maintenance' : 'Maintenance' }}</button>
+            </form>
             <form method="POST" action="{{ route('admin.accounts.toggle', $account) }}" class="inline-form">
                 @csrf
                 <button type="submit" class="btn {{ $account->is_active ? 'btn--danger' : 'btn--primary' }}">
-                    {{ $account->is_active ? 'Disable account' : 'Enable account' }}
+                    {{ $account->is_active ? 'Disable' : 'Enable' }}
                 </button>
+            </form>
+            <form method="POST" action="{{ route('admin.accounts.destroy', $account) }}" class="inline-form"
+                  onsubmit="return confirm('Delete account &quot;{{ $account->name }}&quot;? Past transactions are kept but it stops receiving new payments.')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn--danger">Delete</button>
             </form>
         </div>
     </div>
 
+    @if ($reason && $account->is_active && $account->isDecoded())
+        <div class="alert alert--warning"><strong>Account in maintenance mode:</strong> {{ $reason }}. It will not receive new payments until this clears (limits reset on the 1st, or end maintenance manually).</div>
+    @endif
+
     @if ($account->decode_error)
         <div class="alert alert--danger"><strong>QR not usable:</strong> {{ $account->decode_error }}</div>
+    @endif
+
+    @if ($account->isDecoded())
+        <div class="grid grid-4">
+            <div class="stat">
+                <div class="stat-label">Received this month</div>
+                <div class="stat-value">{{ number_format($stats['month']['received'], 0) }}</div>
+                <div class="stat-note">Today {{ number_format($stats['used_today'], 0) }}{{ $account->daily_limit !== null ? ' / '.number_format($account->daily_limit, 0) : '' }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Monthly limit used</div>
+                <div class="stat-value">{{ $account->monthly_limit !== null ? number_format(min(100, $stats['used_month'] / max(1, (float) $account->monthly_limit) * 100), 0).'%' : '∞' }}</div>
+                <div class="stat-note">{{ number_format($stats['used_month'], 0) }}{{ $account->monthly_limit !== null ? ' / '.number_format($account->monthly_limit, 0) : '' }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Verified this month</div>
+                <div class="stat-value">{{ $stats['month']['verified'] }}</div>
+                <div class="stat-note">{{ $stats['month']['attempts'] }} attempts · {{ $stats['month']['success_rate'] }}%</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Fees this month</div>
+                <div class="stat-value">{{ number_format($stats['month']['fees'], 0) }}</div>
+                <div class="stat-note">Net {{ number_format($stats['month']['net'], 0) }}</div>
+            </div>
+        </div>
     @endif
 
     <div class="grid grid-2">
@@ -138,6 +183,54 @@
                         <dt><span class="badge badge--{{ $badge }}">{{ $label }}</span></dt><dd class="muted">{{ $meaning }}</dd>
                     @endforeach
                 </dl>
+            </div>
+        </div>
+    @endif
+
+    @if ($account->isDecoded())
+        <div class="card">
+            <div class="card-head"><h2>Account statistics</h2><span class="muted">Limits reset on the 1st; past months are kept below</span></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Period</th><th class="num">Attempts</th><th class="num">Verified</th><th class="num">Expired</th><th class="num">Failed</th><th class="num">Received</th><th class="num">Our fees</th><th class="num">Net to merchant</th><th class="num">Success</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>This month</strong></td>
+                            <td class="num">{{ $stats['month']['attempts'] }}</td>
+                            <td class="num">{{ $stats['month']['verified'] }}</td>
+                            <td class="num">{{ $stats['month']['expired'] }}</td>
+                            <td class="num">{{ $stats['month']['failed'] }}</td>
+                            <td class="num">{{ number_format($stats['month']['received'], 2) }}</td>
+                            <td class="num">{{ number_format($stats['month']['fees'], 2) }}</td>
+                            <td class="num">{{ number_format($stats['month']['net'], 2) }}</td>
+                            <td class="num">{{ $stats['month']['success_rate'] }}%</td>
+                        </tr>
+                        @foreach ($months as $m)
+                            <tr>
+                                <td>{{ $m->label() }}</td>
+                                <td class="num">{{ $m->attempts }}</td>
+                                <td class="num">{{ $m->verified }}</td>
+                                <td class="num">{{ $m->expired }}</td>
+                                <td class="num">{{ $m->failed }}</td>
+                                <td class="num">{{ number_format($m->received, 2) }}</td>
+                                <td class="num">{{ number_format($m->fees, 2) }}</td>
+                                <td class="num">{{ number_format($m->net, 2) }}</td>
+                                <td class="num">{{ $m->attempts ? round($m->verified / $m->attempts * 100, 1) : 0 }}%</td>
+                            </tr>
+                        @endforeach
+                        <tr style="border-top: 2px solid var(--border)">
+                            <td><strong>Lifetime</strong></td>
+                            <td class="num">{{ $stats['all']['attempts'] }}</td>
+                            <td class="num">{{ $stats['all']['verified'] }}</td>
+                            <td class="num">{{ $stats['all']['expired'] }}</td>
+                            <td class="num">{{ $stats['all']['failed'] }}</td>
+                            <td class="num">{{ number_format($stats['all']['received'], 2) }}</td>
+                            <td class="num">{{ number_format($stats['all']['fees'], 2) }}</td>
+                            <td class="num">{{ number_format($stats['all']['net'], 2) }}</td>
+                            <td class="num">{{ $stats['all']['success_rate'] }}%</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     @endif

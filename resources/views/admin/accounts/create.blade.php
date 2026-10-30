@@ -30,9 +30,14 @@
                             <div class="hint">Lower is preferred (priority routing).</div>
                         </div>
                         <div class="form-row">
-                            <label for="daily_limit">Daily limit (optional)</label>
-                            <input id="daily_limit" type="number" name="daily_limit" value="{{ old('daily_limit') }}" min="0" step="0.01">
+                            <label for="daily_limit">Daily limit (PKR, optional)</label>
+                            <input id="daily_limit" type="number" name="daily_limit" value="{{ old('daily_limit') }}" min="0" step="0.01" placeholder="No limit">
                         </div>
+                    </div>
+                    <div class="form-row">
+                        <label for="monthly_limit">Monthly limit (PKR, optional)</label>
+                        <input id="monthly_limit" type="number" name="monthly_limit" value="{{ old('monthly_limit') }}" min="0" step="0.01" placeholder="No limit">
+                        <div class="hint">When a day's or month's received total reaches the limit, the account goes into maintenance and stops getting new payments. The monthly counter resets on the 1st.</div>
                     </div>
 
                     <div class="form-row">

@@ -41,6 +41,7 @@ class PaymentAccountController extends Controller
                 ->orderBy('priority')
                 ->orderBy('id')
                 ->paginate(25),
+            'usableCount' => PaymentAccount::query()->usable()->get()->filter->canAccept()->count(),
         ]);
     }
 
@@ -55,6 +56,7 @@ class PaymentAccountController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'priority' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'daily_limit' => ['nullable', 'numeric', 'min:0'],
+            'monthly_limit' => ['nullable', 'numeric', 'min:0'],
             ...$this->sourceRules(),
         ]);
 
@@ -63,6 +65,7 @@ class PaymentAccountController extends Controller
             'provider' => $data['provider'] ?? ProviderRegistry::AUTO,
             'priority' => $data['priority'] ?? 100,
             'daily_limit' => $data['daily_limit'] ?? null,
+            'monthly_limit' => $data['monthly_limit'] ?? null,
         ]);
         $account->is_active = false;
         $account->decode_status = DecodeStatus::Pending;
@@ -125,6 +128,8 @@ class PaymentAccountController extends Controller
             'providers' => $this->providers->options(),
             'fields' => $provider?->describe($account->raw_payload) ?? [],
             'editable' => $provider?->editableFields() ?? [],
+            'stats' => $account->stats(),
+            'months' => $account->monthlyStats()->limit(12)->get(),
             'payments' => $account->payments()->with('merchant')->latest('id')->limit(15)->get(),
         ]);
     }
@@ -199,15 +204,38 @@ class PaymentAccountController extends Controller
 
     public function update(Request $request, PaymentAccount $account): RedirectResponse
     {
-        $account->fill($request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'priority' => ['required', 'integer', 'min:1', 'max:1000'],
             'daily_limit' => ['nullable', 'numeric', 'min:0'],
-        ]))->save();
+            'monthly_limit' => ['nullable', 'numeric', 'min:0'],
+        ]);
+        $account->fill($data + ['daily_limit' => $data['daily_limit'] ?? null, 'monthly_limit' => $data['monthly_limit'] ?? null])->save();
 
         Audit::log('account.updated', $account, ...Audit::changes($account));
 
         return redirect()->route('admin.accounts.show', $account)->with('success', 'Account updated.');
+    }
+
+    public function maintenance(PaymentAccount $account): RedirectResponse
+    {
+        $account->forceFill(['maintenance' => ! $account->maintenance])->save();
+        Audit::log($account->maintenance ? 'account.maintenance_on' : 'account.maintenance_off', $account);
+
+        return back()->with('success', $account->maintenance
+            ? 'Account put in maintenance; it will not receive new payments.'
+            : 'Account taken out of maintenance.');
+    }
+
+    public function destroy(PaymentAccount $account): RedirectResponse
+    {
+        // Soft delete: it leaves routing and the lists, but past payments keep
+        // their link so transaction history stays intact.
+        $account->forceFill(['is_active' => false])->save();
+        $account->delete();
+        Audit::log('account.deleted', $account, [], ['name' => $account->name]);
+
+        return redirect()->route('admin.accounts.index')->with('success', "Account \"{$account->name}\" deleted. Its past transactions are kept.");
     }
 
     public function uploadQr(Request $request, PaymentAccount $account): RedirectResponse
