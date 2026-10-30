@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Pay {{ $payment->currency }} {{ number_format($payment->amount, 2) }} · {{ $payment->merchant->name }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=5">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=6">
 </head>
 <body class="checkout-body">
 <main class="checkout" id="checkout"
@@ -27,8 +27,25 @@
     </header>
 
     @if ($payment->isPending())
+        <div class="checkout-stepnav">
+            <span @class(['step', 'active' => $needsPhone, 'done' => ! $needsPhone])><span class="step-num">1</span> Enter number</span>
+            <span class="step-line"></span>
+            <span @class(['step', 'active' => ! $needsPhone])><span class="step-num">2</span> Scan &amp; pay</span>
+        </div>
+
         <section class="checkout-phone" id="phone-step">
-            @if ($payment->claimed_phone)
+            @if ($needsPhone)
+                <div class="phone-prompt">
+                    <strong>Step 1 — Enter the mobile number you will pay from</strong>
+                    <p>Type the mobile number of the <strong>account you will send this payment from</strong>. We use it to confirm your payment automatically. The QR code shows after you enter it.</p>
+                </div>
+                <form method="POST" action="{{ route('checkout.phone', $payment->payment_id) }}" class="phone-form">
+                    @csrf
+                    <input type="tel" name="claimed_phone" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ old('claimed_phone') }}" required autofocus>
+                    <button type="submit" class="btn btn--primary">Show QR code →</button>
+                </form>
+                @error('claimed_phone')<div class="phone-error">{{ $message }}</div>@enderror
+            @else
                 <div class="phone-saved">
                     <span><x-icon name="check" :size="16" /> Pay from <strong class="mono">{{ $payment->claimed_phone }}</strong></span>
                     <a href="#" onclick="document.getElementById('phone-form').hidden=false;this.parentElement.hidden=true;return false;">Change</a>
@@ -38,23 +55,13 @@
                     <input type="tel" name="claimed_phone" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ $payment->claimed_phone }}" required>
                     <button type="submit" class="btn btn--primary">Save</button>
                 </form>
-            @else
-                <div class="phone-prompt">
-                    <strong>Enter the mobile number you will pay from</strong>
-                    <p>Type the mobile number of the <strong>account you will send this payment from</strong>. We use it to confirm your payment automatically. Enter it, then scan the QR and pay from that same number.</p>
-                </div>
-                <form method="POST" action="{{ route('checkout.phone', $payment->payment_id) }}" class="phone-form">
-                    @csrf
-                    <input type="tel" name="claimed_phone" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ old('claimed_phone') }}" required autofocus>
-                    <button type="submit" class="btn btn--primary">Save number</button>
-                </form>
-                @error('claimed_phone')<div class="phone-error">{{ $message }}</div>@enderror
+                <p class="checkout-scan-hint">Step 2 — Scan this QR and pay <strong>PKR {{ number_format($payment->amount, 2) }}</strong> from <strong class="mono">{{ $payment->claimed_phone }}</strong>.</p>
             @endif
         </section>
     @endif
 
     <section class="checkout-qr">
-        <div id="qr-frame" @class(['qr-frame', 'is-hidden' => ! $qrSvg])>
+        <div id="qr-frame" @class(['qr-frame', 'is-hidden' => ! $qrSvg || $needsPhone])>
             @if ($qrSvg)
                 {!! $qrSvg !!}
             @endif
@@ -79,7 +86,7 @@
         </div>
     </section>
 
-    <section class="checkout-timer" id="timer" @if (! $payment->isPending()) hidden @endif>
+    <section class="checkout-timer" id="timer" @if (! $payment->isPending() || $needsPhone) hidden @endif>
         <div class="timer-row">
             <span>QR expires in</span>
             <strong id="timer-text">--:--</strong>
@@ -106,8 +113,8 @@
         </div>
     </dl>
 
-    <ol class="checkout-steps" id="steps" @if (! $payment->isPending()) hidden @endif>
-        <li>Open your banking or wallet app.</li>
+    <ol class="checkout-steps" id="steps" @if (! $payment->isPending() || $needsPhone) hidden @endif>
+        <li>Open the banking or wallet app on the number you entered.</li>
         <li>Scan this QR code. The amount is filled in automatically.</li>
         <li>Confirm the payment. This page updates on its own.</li>
     </ol>

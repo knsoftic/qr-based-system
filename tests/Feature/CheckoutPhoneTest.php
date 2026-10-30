@@ -47,6 +47,26 @@ class CheckoutPhoneTest extends TestCase
             ->assertDontSee('Enter the mobile number you will pay from');
     }
 
+    public function test_the_qr_is_hidden_until_the_number_is_entered(): void
+    {
+        $payment = $this->payment();
+
+        // Step 1: number not entered -> QR frame carries the is-hidden class.
+        $this->get(route('checkout.show', $payment->payment_id))
+            ->assertOk()
+            ->assertSee('Enter number')
+            ->assertSee('Scan &amp; pay', false)
+            ->assertSee('qr-frame is-hidden', false);
+
+        $payment->forceFill(['claimed_phone' => '03001234567'])->save();
+
+        // Step 2: number entered -> QR frame is shown (no is-hidden class).
+        $this->get(route('checkout.show', $payment->payment_id))
+            ->assertSee('class="qr-svg', false)
+            ->assertDontSee('qr-frame is-hidden', false)
+            ->assertSee('Scan this QR and pay');
+    }
+
     public function test_an_invalid_number_is_rejected(): void
     {
         $payment = $this->payment();

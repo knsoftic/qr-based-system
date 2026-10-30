@@ -613,6 +613,16 @@ pre.json {
 .checkout-amount .currency { font-size: 1rem; font-weight: 700; color: rgba(255, 255, 255, .8); margin-right: .25rem; }
 .checkout-description { color: rgba(255, 255, 255, .8); font-size: .9rem; margin-top: .25rem; }
 
+.checkout-stepnav { display: flex; align-items: center; gap: .6rem; padding: 1.1rem 1.5rem 0; color: var(--muted); font-size: .82rem; font-weight: 600; }
+.checkout-stepnav .step { display: inline-flex; align-items: center; gap: .4rem; }
+.checkout-stepnav .step-num { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--neutral-soft); color: var(--muted); font-size: .78rem; }
+.checkout-stepnav .step.active { color: var(--primary); }
+.checkout-stepnav .step.active .step-num { background: var(--primary); color: #fff; }
+.checkout-stepnav .step.done { color: var(--success); }
+.checkout-stepnav .step.done .step-num { background: var(--success); color: #fff; }
+.checkout-stepnav .step-line { flex: 1; height: 2px; background: var(--border); border-radius: 2px; }
+.checkout-scan-hint { margin: .85rem 0 0; color: var(--muted); font-size: .88rem; text-align: center; }
+
 .checkout-phone { padding: 1.25rem 1.5rem 0; }
 .phone-prompt strong { display: block; color: var(--text); margin-bottom: .25rem; }
 .phone-prompt p { color: var(--muted); font-size: .88rem; margin-bottom: .75rem; }
