@@ -24,7 +24,7 @@ class Settings
             'payin.routing_strategy' => config('gateway.routing_strategy'),
             'payin.currency' => config('gateway.currency'),
 
-            'payout.enabled' => false,
+            'payout.enabled' => true,
             'payout.min_amount' => 100.0,
             'payout.max_amount' => 100000.0,
             'payout.daily_limit' => 500000.0,

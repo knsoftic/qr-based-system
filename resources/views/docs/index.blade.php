@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Merchant API · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=6">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=7">
 </head>
 <body>
 <header class="docs-top">
@@ -79,7 +79,61 @@
     <p>Returns the same object. Statuses: <code>pending</code>, <code>paid</code>, <code>expired</code>, <code>failed</code>, <code>cancelled</code>.
         Use this as a fallback if a callback is missed.</p>
 
-    <h2>5. Callbacks</h2>
+    <h2 id="balance">5. Balance</h2>
+    <p>Your current balance, all amounts in <code>{{ $currency }}</code>:</p>
+    <pre>GET {{ $baseUrl }}/balance</pre>
+    <pre>{
+  "data": {
+    "available": "4250.00",
+    "frozen": "1000.00",
+    "paid_out": "7500.00",
+    "earned": "12750.00",
+    "currency": "{{ $currency }}"
+  }
+}</pre>
+    <table>
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+        <tr><td><code>earned</code></td><td>Net of every <code>paid</code> payment (amount minus fee)</td></tr>
+        <tr><td><code>frozen</code></td><td>Held for withdrawals you have requested that are still pending</td></tr>
+        <tr><td><code>paid_out</code></td><td>Withdrawals already sent to you</td></tr>
+        <tr><td><code>available</code></td><td><code>earned − frozen − paid_out</code> — what you can withdraw now</td></tr>
+        </tbody>
+    </table>
+
+    <h2 id="payouts">6. Withdrawals (Pay-Out)</h2>
+    <p>Request a withdrawal of your available balance to easypaisa or JazzCash. The amount is frozen immediately; an operator sends the money manually and then marks it paid.</p>
+    <pre>POST {{ $baseUrl }}/payouts
+
+{
+  "method": "easypaisa",            // or "jazzcash"
+  "account_number": "03001234567",  // the mobile wallet number
+  "account_name": "Ali Khan",       // optional
+  "amount": 1000.00,
+  "note": "weekly settlement"       // optional
+}</pre>
+    <p>Response <code>201 Created</code>:</p>
+    <pre>{
+  "data": {
+    "payout_ref": "PO2610301A2B3C",
+    "method": "easypaisa",
+    "account_number": "03001234567",
+    "account_name": "Ali Khan",
+    "amount": "1000.00",
+    "currency": "{{ $currency }}",
+    "status": "pending",
+    "note": "weekly settlement",
+    "reference": null,
+    "created_at": "2026-10-30T09:15:00+00:00",
+    "processed_at": null
+  }
+}</pre>
+    <p>Statuses: <code>pending</code> (requested, amount frozen), <code>paid</code> (money sent — moves from frozen to paid out), <code>rejected</code> (amount returns to your available balance). List or fetch:</p>
+    <pre>GET {{ $baseUrl }}/payouts
+GET {{ $baseUrl }}/payouts/{payout_ref}</pre>
+    <p>A <code>422</code> with code <code>insufficient_balance</code> means the amount is more than your available balance. Withdrawals can also be requested from the <a href="{{ route('merchant.login') }}">merchant portal</a>.</p>
+
+    <h2>7. Callbacks</h2>
     <p>On every status change we <code>POST</code> to your <code>callback_url</code>:</p>
     <pre>{
   "event": "payment.paid",
@@ -89,7 +143,7 @@
     <p>Verify headers <code>X-Timestamp</code> and <code>X-Signature</code> = hex HMAC-SHA256 of <code>timestamp + "." + raw_body</code> with your API secret.
         Respond with HTTP 2xx. Failed deliveries are retried with exponential backoff. Always treat callbacks idempotently.</p>
 
-    <h2>6. Errors</h2>
+    <h2>8. Errors</h2>
     <pre>{ "error": { "code": "validation_error", "message": "...", "fields": { "amount": ["..."] } } }</pre>
     <table>
         <thead><tr><th>HTTP</th><th>code</th><th>Meaning</th></tr></thead>
@@ -100,11 +154,12 @@
         <tr><td>409</td><td><code>idempotency_conflict</code></td><td>Same Idempotency-Key used with a different body</td></tr>
         <tr><td>422</td><td><code>validation_error</code></td><td>Invalid input (see <code>fields</code>)</td></tr>
         <tr><td>429</td><td><code>rate_limited</code></td><td>Too many requests; retry later</td></tr>
-        <tr><td>503</td><td><code>no_account_available</code>, <code>payin_disabled</code></td><td>Temporarily unable to accept payments</td></tr>
+        <tr><td>422</td><td><code>insufficient_balance</code></td><td>Withdrawal amount exceeds your available balance</td></tr>
+        <tr><td>503</td><td><code>no_account_available</code>, <code>payin_disabled</code>, <code>payout_disabled</code></td><td>Temporarily unable to accept payments or withdrawals</td></tr>
         </tbody>
     </table>
 
-    <h2>7. PHP example</h2>
+    <h2>9. PHP example</h2>
     <pre>&lt;?php
 $apiKey    = 'pk_your_key';
 $apiSecret = 'sk_your_secret';
@@ -147,7 +202,7 @@ if (!hash_equals($expected, $_SERVER['HTTP_X_SIGNATURE'] ?? '')) { http_response
 $event = json_decode($raw, true);
 // mark order paid when $event['data']['status'] === 'paid' (check amount + order_id)</pre>
 
-    <h2>8. Payment verification API (gateway operators)</h2>
+    <h2>10. Payment verification API (gateway operators)</h2>
     <p>A trusted verifier can confirm a received payment. Enable it in <em>Admin → Settings → Verification</em>.</p>
     <pre>POST {{ $baseUrl }}/verifications
 X-Verifier-Key: vk_…

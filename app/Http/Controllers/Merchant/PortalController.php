@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Merchant;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
+use App\Payments\Exceptions\GatewayException;
 use App\Payments\PayInTester;
 use App\Payments\PaymentService;
+use App\Payments\PayoutService;
 use App\Support\Audit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -37,12 +40,13 @@ class PortalController extends Controller
             ->selectRaw("SUM(CASE WHEN status='paid' THEN net_amount ELSE 0 END) net")
             ->first();
 
-        // Lifetime settled total (net of fees). Payouts will subtract from this.
-        $lifetimeNet = (float) $merchant->payments()->where('status', PaymentStatus::Paid->value)->sum('net_amount');
+        $payoutToday = (float) $merchant->payouts()->where('status', 'paid')
+            ->where('processed_at', '>=', now()->startOfDay())->sum('amount');
 
         return view('merchant.dashboard', [
             'merchant' => $merchant,
             'payments' => $merchant->payments()->latest('id')->limit(15)->get(),
+            'balance' => $merchant->balance(),
             'stats' => [
                 'total' => (int) $today->total,
                 'pending' => (int) $today->pending,
@@ -52,10 +56,55 @@ class PortalController extends Controller
                 'volume' => (float) $today->volume,
                 'fees' => (float) $today->fees,
                 'net' => (float) $today->net,
+                'payout_today' => $payoutToday,
                 'success_rate' => $today->total ? round($today->paid / $today->total * 100, 1) : 0.0,
-                'balance' => $lifetimeNet,
             ],
         ]);
+    }
+
+    public function payouts(Request $request): View
+    {
+        $merchant = $this->merchant($request);
+
+        return view('merchant.payouts', [
+            'merchant' => $merchant,
+            'balance' => $merchant->balance(),
+            'payouts' => $merchant->payouts()->latest('id')->paginate(15),
+            'methods' => \App\Models\Payout::METHODS,
+            'enabled' => (bool) app(\App\Support\Settings::class)->get('payout.enabled'),
+            'min' => (float) app(\App\Support\Settings::class)->get('payout.min_amount'),
+            'max' => (float) app(\App\Support\Settings::class)->get('payout.max_amount'),
+        ]);
+    }
+
+    public function requestPayout(Request $request, PayoutService $payouts): RedirectResponse
+    {
+        $merchant = $this->merchant($request);
+
+        $data = $request->validate([
+            'method' => ['required', Rule::in(array_keys(\App\Models\Payout::METHODS))],
+            'account_number' => ['required', 'string', 'regex:/^0?3\d{2}[\s-]?\d{7}$/'],
+            'account_name' => ['nullable', 'string', 'max:100'],
+            'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ], ['account_number.regex' => 'Enter a valid mobile number, e.g. 03001234567.']);
+
+        $digits = preg_replace('/\D/', '', $data['account_number']);
+        $data['account_number'] = strlen($digits) === 10 ? '0'.$digits : $digits;
+
+        try {
+            $payout = $payouts->request($merchant, $data);
+        } catch (GatewayException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        Audit::log('merchant.payout_requested', null, [], [
+            'merchant' => $merchant->merchant_code, 'payout' => $payout->payout_ref,
+            'amount' => $payout->amount, 'method' => $payout->method,
+        ], byAdmin: false);
+
+        return redirect()->route('merchant.payouts')
+            ->with('success', "Withdrawal request {$payout->payout_ref} for PKR ".number_format((float) $payout->amount, 2).' submitted. The amount is on hold until an admin pays it.');
     }
 
     public function revealSecret(Request $request): RedirectResponse

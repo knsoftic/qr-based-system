@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\MerchantController;
 use App\Http\Controllers\Admin\PaymentAccountController;
+use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
@@ -40,6 +41,8 @@ Route::prefix('merchant')->name('merchant.')->group(function () {
         Route::post('secret/rotate', [PortalController::class, 'rotateSecret'])->middleware('throttle:merchant-sensitive')->name('secret.rotate');
         Route::get('test', [PortalController::class, 'testForm'])->name('test');
         Route::post('test', [PortalController::class, 'runTest'])->middleware('throttle:payin-test')->name('test.run');
+        Route::get('payouts', [PortalController::class, 'payouts'])->name('payouts');
+        Route::post('payouts', [PortalController::class, 'requestPayout'])->middleware('throttle:merchant-sensitive')->name('payouts.request');
         Route::get('verify', [PortalController::class, 'verifyForm'])->name('verify');
         Route::post('verify/credentials', [PortalController::class, 'verifyCredentials'])->middleware('throttle:merchant-sensitive')->name('verify.credentials');
         Route::post('verify/signature', [PortalController::class, 'verifySignature'])->middleware('throttle:merchant-sensitive')->name('verify.signature');
@@ -91,6 +94,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->name('settings.verifier-key');
 
         Route::get('reports', ReportController::class)->name('reports');
+
+        Route::get('payouts', [PayoutController::class, 'index'])->name('payouts.index');
+        Route::post('payouts/{payout}/paid', [PayoutController::class, 'markPaid'])->name('payouts.paid');
+        Route::post('payouts/{payout}/reject', [PayoutController::class, 'reject'])->name('payouts.reject');
 
         Route::get('sms', [SmsController::class, 'index'])->name('sms.index');
         Route::get('sms/devices', [SmsController::class, 'devices'])->name('sms.devices');

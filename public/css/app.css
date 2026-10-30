@@ -488,6 +488,26 @@ pre.json {
 
 .inline-form { display: inline; }
 
+/* ---------- Payout mark-paid form ---------- */
+/* In-flow (not absolute) so it is never clipped by the table's overflow. */
+
+.payout-actions { display: inline-block; }
+.payout-actions > summary { list-style: none; display: inline-flex; cursor: pointer; }
+.payout-actions > summary::-webkit-details-marker { display: none; }
+.payout-pop {
+    margin: .5rem 0 .25rem auto;
+    width: 230px;
+    display: grid;
+    gap: .5rem;
+    padding: .75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-align: left;
+    white-space: normal;
+}
+.payout-pop input { width: 100%; }
+
 /* ---------- Merchant balance hero ---------- */
 
 .balance-hero {

@@ -17,12 +17,16 @@
     <div class="balance-hero">
         <div>
             <div class="balance-label">Available balance</div>
-            <div class="balance-value">PKR {{ number_format($stats['balance'], 2) }}</div>
-            <div class="balance-note">Net of fees from your paid payments. Pay-Out to your account is coming soon.</div>
+            <div class="balance-value">PKR {{ number_format($balance['available'], 2) }}</div>
+            <div class="balance-note">
+                On hold (withdrawing): PKR {{ number_format($balance['frozen'], 2) }} ·
+                Paid out: PKR {{ number_format($balance['paid_out'], 2) }}.
+                <a href="{{ route('merchant.payouts') }}" style="color:#fff;text-decoration:underline">Withdraw →</a>
+            </div>
         </div>
         <div class="balance-side">
             <div><span class="balance-side-label">Pay-In today</span><span class="balance-side-value">PKR {{ number_format($stats['volume'], 2) }}</span></div>
-            <div><span class="balance-side-label">Pay-Out today</span><span class="balance-side-value">PKR 0.00</span></div>
+            <div><span class="balance-side-label">Pay-Out today</span><span class="balance-side-value">PKR {{ number_format($stats['payout_today'], 2) }}</span></div>
             <div><span class="balance-side-label">Fees today</span><span class="balance-side-value">PKR {{ number_format($stats['fees'], 2) }}</span></div>
         </div>
     </div>

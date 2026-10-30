@@ -59,6 +59,58 @@ class Merchant extends Authenticatable
         return $this->hasMany(Payment::class);
     }
 
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(Payout::class);
+    }
+
+    /** Net earnings from paid payments (after our fees). */
+    public function earnedNet(): float
+    {
+        return (float) $this->payments()->where('status', \App\Enums\PaymentStatus::Paid->value)->sum('net_amount');
+    }
+
+    private function payoutsSum(array $statuses): float
+    {
+        return (float) $this->payouts()->whereIn('status', $statuses)->sum('amount');
+    }
+
+    /** Requested but not yet paid (held while awaiting admin approval). */
+    public function frozenBalance(): float
+    {
+        return $this->payoutsSum(['pending']);
+    }
+
+    public function paidOut(): float
+    {
+        return $this->payoutsSum(['paid']);
+    }
+
+    /** What the merchant can still withdraw. */
+    public function availableBalance(): float
+    {
+        return round($this->earnedNet() - $this->frozenBalance() - $this->paidOut(), 2);
+    }
+
+    /**
+     * Balance as the API and portal show it. Money is formatted as a fixed
+     * two-decimal string ("4250.00"), the same convention as payment amounts.
+     *
+     * @return array{available: string, frozen: string, paid_out: string, earned: string, currency: string}
+     */
+    public function balance(): array
+    {
+        $money = static fn (float $v): string => number_format($v, 2, '.', '');
+
+        return [
+            'available' => $money($this->availableBalance()),
+            'frozen' => $money($this->frozenBalance()),
+            'paid_out' => $money($this->paidOut()),
+            'earned' => $money($this->earnedNet()),
+            'currency' => 'PKR',
+        ];
+    }
+
     /**
      * Issue a fresh API key + secret pair. Returns the plain secret so it can
      * be shown to the admin exactly once.
