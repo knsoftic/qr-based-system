@@ -27,11 +27,35 @@ trait GatewayHelpers
      */
     protected function makeMerchant(array $attributes = []): array
     {
-        $merchant = new Merchant($attributes + ['name' => 'Test Shop', 'is_active' => true]);
+        // Default to allowing the test client IP on both sides so existing tests
+        // exercise the happy path; IP tests override these to test blocking.
+        $merchant = new Merchant($attributes + [
+            'name' => 'Test Shop',
+            'is_active' => true,
+            'payin_ip_allowlist' => '127.0.0.1',
+            'payout_ip_allowlist' => '127.0.0.1',
+        ]);
         $secret = $merchant->issueCredentials();
         $merchant->save();
 
         return [$merchant, $secret];
+    }
+
+    /**
+     * Give a merchant withdrawable balance by recording a paid payment worth
+     * $net (net of fees), on a per-merchant demo account.
+     */
+    protected function fundMerchant(Merchant $merchant, float $net): void
+    {
+        $account = $this->makeAccount('PK00DEMO'.str_pad((string) $merchant->id, 16, '0', STR_PAD_LEFT));
+        $id = uniqid();
+
+        $merchant->payments()->create([
+            'payment_id' => 'pay_'.$id, 'transaction_id' => 'TXN'.$id, 'payment_account_id' => $account->id,
+            'order_id' => 'FUND-'.$id, 'amount' => $net, 'currency' => 'PKR', 'fee_amount' => 0, 'net_amount' => $net,
+            'status' => 'paid', 'qr_payload' => 'x', 'idempotency_key' => 'fund-'.$id, 'request_hash' => hash('sha256', $id),
+            'expires_at' => now()->addMinutes(5), 'paid_at' => now(),
+        ]);
     }
 
     protected function makeAccount(string $accountNumber = 'PK00DEMO0000001234567890', array $attributes = []): PaymentAccount

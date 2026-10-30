@@ -92,6 +92,10 @@
                 <dl class="kv">
                     <dt>Contact</dt><dd>{{ $merchant->email ?: '—' }}</dd>
                     <dt>Callback URL</dt><dd class="mono">{{ $merchant->callback_url ?: '—' }}</dd>
+                    <dt>Pay-In IP allowlist</dt>
+                    <dd>@if ($merchant->payinIps())<span class="mono">{{ implode(', ', $merchant->payinIps()) }}</span>@else<span class="badge badge--inactive">Empty — pay-in API blocked</span>@endif</dd>
+                    <dt>Pay-Out IP allowlist</dt>
+                    <dd>@if ($merchant->payoutIps())<span class="mono">{{ implode(', ', $merchant->payoutIps()) }}</span>@else<span class="badge badge--inactive">Empty — pay-out API blocked</span>@endif</dd>
                     <dt>Fees</dt>
                     <dd>
                         @if ($merchant->fee_percent !== null || $merchant->fee_fixed !== null)

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Pay {{ $payment->currency }} {{ number_format($payment->amount, 2) }} · {{ $payment->merchant->name }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=7">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=8">
 </head>
 <body class="checkout-body">
 <main class="checkout" id="checkout"

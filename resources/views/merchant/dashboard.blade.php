@@ -118,6 +118,20 @@ Idempotency-Key: &lt;unique per order attempt&gt;   (POST only)</pre>
         </div>
     </div>
 
+    <div class="card" id="ip-allowlist">
+        <div class="card-head"><h2>API IP allowlist</h2></div>
+        <div class="card-body">
+            <p class="muted mt-0">Your API is locked to the IPs below (set by the gateway admin, separately for deposits and withdrawals). Your current IP is <span class="mono">{{ request()->ip() }}</span> — share it with the admin to get access.</p>
+            <dl class="kv">
+                <dt>Pay-In (deposit)</dt>
+                <dd>@if ($merchant->payinIps())<span class="mono">{{ implode(', ', $merchant->payinIps()) }}</span>@else<span class="badge badge--inactive">Empty — pay-in API blocked</span>@endif</dd>
+                <dt>Pay-Out (withdrawal)</dt>
+                <dd>@if ($merchant->payoutIps())<span class="mono">{{ implode(', ', $merchant->payoutIps()) }}</span>@else<span class="badge badge--inactive">Empty — pay-out API blocked</span>@endif</dd>
+            </dl>
+            <p class="hint">To add or change an allowed IP, contact your gateway admin.</p>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-head">
             <h2>Recent payments</h2>

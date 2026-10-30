@@ -20,6 +20,8 @@ class Merchant extends Authenticatable
         'email',
         'website',
         'callback_url',
+        'payin_ip_allowlist',
+        'payout_ip_allowlist',
         'fee_percent',
         'fee_fixed',
         'is_active',
@@ -57,6 +59,44 @@ class Merchant extends Authenticatable
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /** @return list<string> */
+    public function payinIps(): array
+    {
+        return \App\Support\IpAllowlist::parse($this->payin_ip_allowlist);
+    }
+
+    /** @return list<string> */
+    public function payoutIps(): array
+    {
+        return \App\Support\IpAllowlist::parse($this->payout_ip_allowlist);
+    }
+
+    /**
+     * Allowlist for a side. "any" (used by balance) is the union of both,
+     * so whichever server the merchant calls from is accepted.
+     *
+     * @return list<string>
+     */
+    public function allowedIps(string $scope): array
+    {
+        return match ($scope) {
+            'payin' => $this->payinIps(),
+            'payout' => $this->payoutIps(),
+            default => array_values(array_unique([...$this->payinIps(), ...$this->payoutIps()])),
+        };
+    }
+
+    /**
+     * Strict: an empty allowlist blocks (returns false). An IP passes only when
+     * the relevant list is non-empty and matches it.
+     */
+    public function ipAllowed(string $ip, string $scope): bool
+    {
+        $rules = $this->allowedIps($scope);
+
+        return $rules !== [] && \App\Support\IpAllowlist::matches($ip, $rules);
     }
 
     public function payouts(): HasMany

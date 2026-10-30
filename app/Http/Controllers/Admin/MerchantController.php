@@ -8,6 +8,7 @@ use App\Models\Merchant;
 use App\Payments\PayInTester;
 use App\Payments\PaymentService;
 use App\Support\Audit;
+use App\Support\IpAllowlist;
 use App\Support\UrlGuard;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -165,6 +166,8 @@ class MerchantController extends Controller
             ],
             'fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'fee_fixed' => ['nullable', 'numeric', 'min:0'],
+            'payin_ip_allowlist' => ['nullable', 'string', 'max:4000', $this->ipAllowlistRule()],
+            'payout_ip_allowlist' => ['nullable', 'string', 'max:4000', $this->ipAllowlistRule()],
             'username' => [
                 'nullable', 'required_if:portal_enabled,1', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/',
                 Rule::unique('merchants', 'username')->ignore($merchant?->id),
@@ -174,13 +177,29 @@ class MerchantController extends Controller
             'username.required_if' => 'A portal username is required when the portal login is enabled.',
         ]);
 
-        $attributes = collect($data)->except(['username', 'portal_password'])->all() + [
+        $attributes = collect($data)->except(['username', 'portal_password', 'payin_ip_allowlist', 'payout_ip_allowlist'])->all() + [
             'username' => isset($data['username']) ? Str::lower($data['username']) : null,
+            'payin_ip_allowlist' => IpAllowlist::normalise($data['payin_ip_allowlist'] ?? null),
+            'payout_ip_allowlist' => IpAllowlist::normalise($data['payout_ip_allowlist'] ?? null),
             'is_active' => $request->boolean('is_active'),
             'portal_enabled' => $request->boolean('portal_enabled'),
         ];
 
         return ['attributes' => $attributes, 'password' => $data['portal_password'] ?? null];
+    }
+
+    /**
+     * Validates that every line of an IP allowlist is a valid IP or CIDR range.
+     */
+    private function ipAllowlistRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail) {
+            foreach (IpAllowlist::parse(is_string($value) ? $value : null) as $rule) {
+                if (! IpAllowlist::isValidRule($rule)) {
+                    $fail("“{$rule}” is not a valid IP address or CIDR range.");
+                }
+            }
+        };
     }
 
     /**

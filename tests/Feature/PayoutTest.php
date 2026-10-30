@@ -15,31 +15,9 @@ class PayoutTest extends TestCase
 
     private const PASSWORD = 'portal-pass-123';
 
-    /**
-     * Give the merchant some withdrawable balance by recording a paid payment
-     * worth $net (net of fees). Returns the merchant unchanged.
-     */
     private function fund(Merchant $merchant, float $net): void
     {
-        $account = $this->makeAccount('PK00DEMO'.str_pad((string) $merchant->id, 16, '0', STR_PAD_LEFT));
-
-        $id = uniqid();
-        $merchant->payments()->create([
-            'payment_id' => 'pay_'.$id,
-            'transaction_id' => 'TXN'.$id,
-            'payment_account_id' => $account->id,
-            'order_id' => 'FUND-'.$id,
-            'amount' => $net,
-            'currency' => 'PKR',
-            'fee_amount' => 0,
-            'net_amount' => $net,
-            'status' => 'paid',
-            'qr_payload' => 'x',
-            'idempotency_key' => 'fund-'.$id,
-            'request_hash' => hash('sha256', $id),
-            'expires_at' => now()->addMinutes(5),
-            'paid_at' => now(),
-        ]);
+        $this->fundMerchant($merchant, $net);
     }
 
     /**

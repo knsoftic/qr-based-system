@@ -728,8 +728,9 @@ pre.json {
 .docs-hero h1 { color: #fff; font-size: 2rem; margin-bottom: .5rem; }
 .docs-hero p { color: rgba(255, 255, 255, .85); font-size: 1.02rem; margin: 0; }
 
-.docs { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
-.docs h2 { margin-top: 2.25rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 1.2rem; }
+.docs { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; counter-reset: docs-section; }
+.docs h2 { margin-top: 2.25rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 1.2rem; counter-increment: docs-section; }
+.docs h2::before { content: counter(docs-section) ". "; color: var(--primary-strong); }
 .docs pre {
     background: #0f172a;
     color: #dbe5ee;

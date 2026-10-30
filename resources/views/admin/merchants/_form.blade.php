@@ -22,6 +22,23 @@
     <div class="hint">Signed status updates are POSTed here. A callback_url sent with a payment request overrides it.</div>
 </div>
 
+<fieldset class="fieldset">
+    <legend>API IP allowlist</legend>
+    <div class="alert alert--warning mt-0">Strict mode: a side with an <strong>empty</strong> list is blocked. Add at least one IP or CIDR per side, or that side's public API stays off (the admin/portal test Pay-In is server-side and keeps working). One entry per line — IPv4, IPv6 or CIDR (e.g. <span class="mono">203.0.113.0/24</span>).</div>
+    <div class="grid grid-2">
+        <div class="form-row">
+            <label for="payin_ip_allowlist">Pay-In (deposit) IPs</label>
+            <textarea id="payin_ip_allowlist" name="payin_ip_allowlist" rows="4" class="mono" placeholder="203.0.113.10&#10;203.0.113.0/24">{{ old('payin_ip_allowlist', $merchant->payin_ip_allowlist) }}</textarea>
+            <div class="hint">May call <span class="mono">POST /payments</span> and <span class="mono">GET /payments/{id}</span>.</div>
+        </div>
+        <div class="form-row">
+            <label for="payout_ip_allowlist">Pay-Out (withdrawal) IPs</label>
+            <textarea id="payout_ip_allowlist" name="payout_ip_allowlist" rows="4" class="mono" placeholder="203.0.113.10">{{ old('payout_ip_allowlist', $merchant->payout_ip_allowlist) }}</textarea>
+            <div class="hint">May call the <span class="mono">/payouts</span> endpoints. Balance works from either list.</div>
+        </div>
+    </div>
+</fieldset>
+
 <div class="grid grid-2">
     <div class="form-row">
         <label for="fee_percent">Fee % (optional)</label>
