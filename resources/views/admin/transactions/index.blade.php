@@ -18,7 +18,7 @@
             <form method="GET" class="filters">
                 <div class="form-row">
                     <label for="q">Search</label>
-                    <input id="q" type="text" name="q" value="{{ request('q') }}" placeholder="Payment / transaction / order ID">
+                    <input id="q" type="text" name="q" value="{{ request('q') }}" placeholder="ID, order, ref or mobile number">
                 </div>
                 <div class="form-row">
                     <label for="status">Status</label>
@@ -48,6 +48,15 @@
                     </select>
                 </div>
                 <div class="form-row">
+                    <label for="method">Verified via</label>
+                    <select id="method" name="method">
+                        <option value="">Any</option>
+                        @foreach ($methods as $key => $label)
+                            <option value="{{ $key }}" @selected(request('method') === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-row">
                     <label for="from">From</label>
                     <input id="from" type="date" name="from" value="{{ request('from') }}">
                 </div>
@@ -71,14 +80,16 @@
                     <th>Merchant</th>
                     <th>Account</th>
                     <th class="num">Amount</th>
-                    <th class="num">Fee</th>
                     <th>Status</th>
+                    <th>Verified via</th>
+                    <th>Payer number</th>
                     <th>Created</th>
-                    <th>Expires / paid</th>
+                    <th>Paid</th>
                 </tr>
                 </thead>
                 <tbody>
                 @forelse ($payments as $payment)
+                    @php($method = $payment->verified_by === null ? null : (str_starts_with($payment->verified_by, 'admin') ? 'admin' : $payment->verified_by))
                     <tr>
                         <td>
                             <a href="{{ route('admin.transactions.show', $payment) }}" class="mono">{{ $payment->transaction_id }}</a>
@@ -88,15 +99,19 @@
                         <td>{{ $payment->merchant?->name }}</td>
                         <td>{{ $payment->account?->name ?? '—' }}</td>
                         <td class="num">{{ $payment->currency }} {{ number_format($payment->amount, 2) }}</td>
-                        <td class="num">{{ number_format($payment->fee_amount, 2) }}</td>
                         <td><span class="badge badge--{{ $payment->status->value }}">{{ $payment->status->label() }}</span></td>
-                        <td class="nowrap">{{ $payment->created_at->format('d M, H:i:s') }}</td>
-                        <td class="nowrap muted">
-                            {{ $payment->paid_at ? 'Paid '.$payment->paid_at->format('H:i:s') : $payment->expires_at->format('H:i:s') }}
+                        <td class="nowrap">
+                            @if ($method === 'sms')<span class="badge badge--success">SMS</span>
+                            @elseif ($method === 'admin')<span class="badge badge--info">Admin</span>
+                            @elseif ($method === 'api')<span class="badge badge--info">API</span>
+                            @else <span class="muted">—</span>@endif
                         </td>
+                        <td class="mono nowrap">{{ $payment->payer_phone ?? $payment->claimed_phone ?? '—' }}</td>
+                        <td class="nowrap">{{ $payment->created_at->format('d M, H:i:s') }}</td>
+                        <td class="nowrap muted">{{ $payment->paid_at?->format('d M, H:i:s') ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="empty">No transactions match these filters.</td></tr>
+                    <tr><td colspan="10" class="empty">No transactions match these filters.</td></tr>
                 @endforelse
                 </tbody>
             </table>

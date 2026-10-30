@@ -31,8 +31,9 @@ class TransactionController extends Controller
         return view('admin.transactions.index', [
             'payments' => $this->filtered($request)->with(['merchant', 'account'])->latest('id')->paginate(25)->withQueryString(),
             'merchants' => Merchant::query()->orderBy('name')->pluck('name', 'id'),
-            'accounts' => PaymentAccount::query()->orderBy('name')->pluck('name', 'id'),
+            'accounts' => PaymentAccount::withTrashed()->orderBy('name')->pluck('name', 'id'),
             'statuses' => PaymentStatus::cases(),
+            'methods' => self::METHODS,
         ]);
     }
 
@@ -136,12 +137,23 @@ class TransactionController extends Controller
         return is_string($value) && preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
     }
 
+    /**
+     * How each payment was verified, for the "Method" filter.
+     */
+    public const METHODS = [
+        'sms' => 'SMS (auto)',
+        'api' => 'Verifier API',
+        'admin' => 'Admin (manual)',
+        'none' => 'Not verified',
+    ];
+
     private function filtered(Request $request): Builder
     {
         $request->validate([
             'status' => ['nullable', Rule::enum(PaymentStatus::class)],
             'merchant_id' => ['nullable', 'integer'],
             'account_id' => ['nullable', 'integer'],
+            'method' => ['nullable', Rule::in(array_keys(self::METHODS))],
             'q' => ['nullable', 'string', 'max:100'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
@@ -151,14 +163,26 @@ class TransactionController extends Controller
             ->when($request->input('status'), fn (Builder $q, $status) => $q->where('status', $status))
             ->when($request->input('merchant_id'), fn (Builder $q, $id) => $q->where('merchant_id', $id))
             ->when($request->input('account_id'), fn (Builder $q, $id) => $q->where('payment_account_id', $id))
+            ->when($request->input('method'), fn (Builder $q, $method) => $method === 'none'
+                ? $q->whereNull('verified_by')
+                : ($method === 'admin'
+                    ? $q->where('verified_by', 'like', 'admin%')
+                    : $q->where('verified_by', $method)))
             ->when($request->input('from'), fn (Builder $q, $from) => $q->where('created_at', '>=', $from.' 00:00:00'))
             ->when($request->input('to'), fn (Builder $q, $to) => $q->where('created_at', '<=', $to.' 23:59:59'))
             ->when($request->input('q'), function (Builder $q, $term) {
-                $q->where(fn (Builder $inner) => $inner
-                    ->where('payment_id', $term)
-                    ->orWhere('transaction_id', $term)
-                    ->orWhere('order_id', $term)
-                    ->orWhere('verification_reference', $term));
+                $digits = preg_replace('/\D/', '', $term);
+                $q->where(function (Builder $inner) use ($term, $digits) {
+                    $inner->where('payment_id', $term)
+                        ->orWhere('transaction_id', $term)
+                        ->orWhere('order_id', $term)
+                        ->orWhere('verification_reference', $term);
+                    // Also search by the payer / checkout mobile number.
+                    if (strlen($digits) >= 4) {
+                        $inner->orWhere('claimed_phone', 'like', '%'.$digits.'%')
+                            ->orWhere('payer_phone', 'like', '%'.$digits.'%');
+                    }
+                });
             });
     }
 }
