@@ -130,10 +130,13 @@ class RaastP2pProvider implements QrProvider
 
         $formatted = $this->formatAmount($amount);
 
-        // Minute precision: round the expiry up so the QR never dies before the payment does.
+        // Minute precision. expires_at is stored at second precision, so round
+        // on whole seconds only (ignore microseconds) to stay consistent with
+        // the stored value; round up so the QR never dies before the payment.
         $expiry = CarbonImmutable::instance($expiresAt ?? now()->addMinutes(5))
-            ->setTimezone($this->rules['timezone'] ?? 'Asia/Karachi');
-        if ($expiry->second > 0 || $expiry->micro > 0) {
+            ->setTimezone($this->rules['timezone'] ?? 'Asia/Karachi')
+            ->startOfSecond();
+        if ($expiry->second > 0) {
             $expiry = $expiry->addMinute()->startOfMinute();
         }
 

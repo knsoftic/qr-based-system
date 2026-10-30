@@ -51,8 +51,10 @@ class MerchantApiTest extends TestCase
 
         $payment = Payment::query()->firstOrFail();
         $items = Tlv::parse($payment->qr_payload);
+        // The provider rounds the expiry up to the next whole minute (so the QR
+        // never dies before the payment) whenever there is any sub-minute part.
         $expected = $payment->expires_at->copy()->setTimezone('Asia/Karachi');
-        if ($expected->second > 0) {
+        if ($expected->second > 0 || $expected->micro > 0) {
             $expected = $expected->addMinute()->startOfMinute();
         }
 
