@@ -98,6 +98,43 @@ class MerchantPortalTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'merchant.portal_login', 'user_id' => null]);
     }
 
+    public function test_the_dashboard_shows_balance_and_todays_stats(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        $this->makeAccount();
+
+        // One paid (net 970), one pending, one expired, today.
+        $merchant->payments()->create($this->paymentRow($merchant, 'P1', 'paid', ['net_amount' => 970, 'fee_amount' => 30, 'paid_at' => now()]));
+        $merchant->payments()->create($this->paymentRow($merchant, 'P2', 'pending'));
+        $merchant->payments()->create($this->paymentRow($merchant, 'P3', 'expired'));
+
+        $this->signIn();
+        $this->get(route('merchant.dashboard'))
+            ->assertOk()
+            ->assertSee('Available balance')
+            ->assertSee('970.00')          // balance = net of paid
+            ->assertSee('Pay-In today')
+            ->assertSee('Pay-Out today')
+            ->assertSee('Completed today')
+            ->assertSee('Failed / expired today');
+    }
+
+    private function paymentRow(Merchant $merchant, string $order, string $status, array $extra = []): array
+    {
+        return array_merge([
+            'payment_id' => 'pay_'.strtolower($order).uniqid(),
+            'transaction_id' => 'TXN'.$order.uniqid(),
+            'order_id' => $order,
+            'amount' => 1000,
+            'currency' => 'PKR',
+            'net_amount' => 1000,
+            'status' => $status,
+            'idempotency_key' => $order.uniqid(),
+            'request_hash' => hash('sha256', $order),
+            'expires_at' => now()->addMinutes(5),
+        ], $extra);
+    }
+
     public function test_wrong_password_disabled_portal_and_inactive_merchant_cannot_sign_in(): void
     {
         [$merchant] = $this->portalMerchant();

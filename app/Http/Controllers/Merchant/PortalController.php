@@ -24,15 +24,36 @@ class PortalController extends Controller
     {
         $payments->expireLapsed();
         $merchant = $this->merchant($request);
-        $today = $merchant->payments()->where('created_at', '>=', now()->startOfDay());
+
+        // One grouped query for today's counts and volumes.
+        $today = $merchant->payments()->where('created_at', '>=', now()->startOfDay())
+            ->selectRaw('COUNT(*) total')
+            ->selectRaw("SUM(status='pending') pending")
+            ->selectRaw("SUM(status='paid') paid")
+            ->selectRaw("SUM(status IN ('failed','cancelled')) failed")
+            ->selectRaw("SUM(status='expired') expired")
+            ->selectRaw("SUM(CASE WHEN status='paid' THEN amount ELSE 0 END) volume")
+            ->selectRaw("SUM(CASE WHEN status='paid' THEN fee_amount ELSE 0 END) fees")
+            ->selectRaw("SUM(CASE WHEN status='paid' THEN net_amount ELSE 0 END) net")
+            ->first();
+
+        // Lifetime settled total (net of fees). Payouts will subtract from this.
+        $lifetimeNet = (float) $merchant->payments()->where('status', PaymentStatus::Paid->value)->sum('net_amount');
 
         return view('merchant.dashboard', [
             'merchant' => $merchant,
             'payments' => $merchant->payments()->latest('id')->limit(15)->get(),
             'stats' => [
-                'today' => (clone $today)->count(),
-                'paid_today' => (clone $today)->where('status', PaymentStatus::Paid->value)->count(),
-                'volume_today' => (float) (clone $today)->where('status', PaymentStatus::Paid->value)->sum('amount'),
+                'total' => (int) $today->total,
+                'pending' => (int) $today->pending,
+                'paid' => (int) $today->paid,
+                'failed' => (int) $today->failed,
+                'expired' => (int) $today->expired,
+                'volume' => (float) $today->volume,
+                'fees' => (float) $today->fees,
+                'net' => (float) $today->net,
+                'success_rate' => $today->total ? round($today->paid / $today->total * 100, 1) : 0.0,
+                'balance' => $lifetimeNet,
             ],
         ]);
     }

@@ -1,35 +1,56 @@
 @extends('layouts.merchant')
 
-@section('title', 'Credentials')
+@section('title', 'Dashboard')
 
 @section('content')
     <div class="page-head">
         <div>
             <h1>{{ $merchant->name }}</h1>
-            <p>Merchant ID <span class="mono">{{ $merchant->merchant_code }}</span> · use these details to connect your website (<a href="{{ route('docs') }}" target="_blank">API docs</a>).</p>
+            <p>Merchant ID <span class="mono">{{ $merchant->merchant_code }}</span> · {{ now()->timezone('Asia/Karachi')->format('l, d M Y') }}</p>
         </div>
         <div class="actions">
-            <a href="{{ route('merchant.test') }}" class="btn btn--primary">Test Pay-In</a>
-            <a href="{{ route('merchant.verify') }}" class="btn">Verify integration</a>
+            <a href="{{ route('merchant.test') }}" class="btn btn--primary"><x-icon name="zap" :size="16" /> Test Pay-In</a>
+            <a href="{{ route('merchant.verify') }}" class="btn"><x-icon name="check" :size="16" /> Verify integration</a>
         </div>
     </div>
 
-    <div class="grid grid-3">
-        <div class="stat">
-            <div class="stat-label">Payment requests today</div>
-            <div class="stat-value">{{ $stats['today'] }}</div>
+    <div class="balance-hero">
+        <div>
+            <div class="balance-label">Available balance</div>
+            <div class="balance-value">PKR {{ number_format($stats['balance'], 2) }}</div>
+            <div class="balance-note">Net of fees from your paid payments. Pay-Out to your account is coming soon.</div>
         </div>
-        <div class="stat">
-            <div class="stat-label">Paid today</div>
-            <div class="stat-value">{{ $stats['paid_today'] }}</div>
-        </div>
-        <div class="stat">
-            <div class="stat-label">Paid volume today (PKR)</div>
-            <div class="stat-value">{{ number_format($stats['volume_today'], 2) }}</div>
+        <div class="balance-side">
+            <div><span class="balance-side-label">Pay-In today</span><span class="balance-side-value">PKR {{ number_format($stats['volume'], 2) }}</span></div>
+            <div><span class="balance-side-label">Pay-Out today</span><span class="balance-side-value">PKR 0.00</span></div>
+            <div><span class="balance-side-label">Fees today</span><span class="balance-side-value">PKR {{ number_format($stats['fees'], 2) }}</span></div>
         </div>
     </div>
 
-    <div class="grid grid-2" style="margin-top: 1.25rem">
+    <div class="grid grid-4">
+        <div class="stat">
+            <div class="stat-label">Orders today</div>
+            <div class="stat-value">{{ $stats['total'] }}</div>
+            <div class="stat-note">{{ $stats['success_rate'] }}% success</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Pending now</div>
+            <div class="stat-value">{{ $stats['pending'] }}</div>
+            <div class="stat-note">Awaiting payment</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Completed today</div>
+            <div class="stat-value" style="color: var(--success)">{{ $stats['paid'] }}</div>
+            <div class="stat-note">Net PKR {{ number_format($stats['net'], 0) }}</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Failed / expired today</div>
+            <div class="stat-value" style="color: var(--danger)">{{ $stats['failed'] + $stats['expired'] }}</div>
+            <div class="stat-note">{{ $stats['failed'] }} failed · {{ $stats['expired'] }} expired</div>
+        </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top: 1.4rem">
         <div class="card" id="credentials">
             <div class="card-head"><h2>API credentials</h2></div>
             <div class="card-body">

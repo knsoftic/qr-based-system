@@ -488,6 +488,28 @@ pre.json {
 
 .inline-form { display: inline; }
 
+/* ---------- Merchant balance hero ---------- */
+
+.balance-hero {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.5rem 1.75rem;
+    border-radius: var(--radius);
+    background: var(--brand-gradient);
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 1.4rem;
+}
+.balance-label { color: rgba(255,255,255,.85); font-weight: 600; font-size: .85rem; }
+.balance-value { font-size: 2.3rem; font-weight: 800; letter-spacing: -.02em; margin-top: .2rem; font-variant-numeric: tabular-nums; }
+.balance-note { color: rgba(255,255,255,.8); font-size: .82rem; margin-top: .35rem; max-width: 30rem; }
+.balance-side { display: grid; gap: .5rem; align-content: center; min-width: 190px; }
+.balance-side > div { display: flex; justify-content: space-between; gap: 1.5rem; padding: .35rem .75rem; background: rgba(255,255,255,.12); border-radius: 8px; }
+.balance-side-label { color: rgba(255,255,255,.85); font-size: .82rem; }
+.balance-side-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+
 /* ---------- Segmented choice (radio pills) ---------- */
 
 .segmented { display: flex; flex-wrap: wrap; gap: .35rem; padding: .3rem; background: var(--neutral-soft); border-radius: 12px; }
