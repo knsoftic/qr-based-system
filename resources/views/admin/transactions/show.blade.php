@@ -45,8 +45,12 @@
                     <dt>QR expires</dt><dd>{{ $payment->expires_at->format('d M Y, H:i:s') }}</dd>
                     <dt>Paid at</dt><dd>{{ $payment->paid_at?->format('d M Y, H:i:s') ?? '—' }}</dd>
                     <dt>Verified by</dt><dd>{{ $payment->verified_by === 'sms' ? 'SMS (auto)' : ($payment->verified_by ?? '—') }}</dd>
+                    @if ($payment->verification_reason)
+                        <dt>Why verified</dt><dd>{{ $payment->verification_reason }}</dd>
+                    @endif
                     <dt>Bank reference</dt><dd class="mono">{{ $payment->verification_reference ?? '—' }}</dd>
-                    <dt>Payer mobile</dt><dd class="mono">{{ $payment->payer_phone ?? '—' }}</dd>
+                    <dt>Number at checkout</dt><dd class="mono">{{ $payment->claimed_phone ?? '—' }}</dd>
+                    <dt>Payer mobile (from SMS)</dt><dd class="mono">{{ $payment->payer_phone ?? '—' }}</dd>
                     @if ($payment->sms_message_id && $payment->smsMessage)
                         <dt>Verifying SMS</dt>
                         <dd>

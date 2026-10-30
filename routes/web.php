@@ -24,6 +24,7 @@ Route::get('/docs', DocsController::class)->name('docs');
 Route::middleware('throttle:checkout')->group(function () {
     Route::get('/checkout/{paymentId}', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::get('/checkout/{paymentId}/status', [CheckoutController::class, 'status'])->name('checkout.status');
+    Route::post('/checkout/{paymentId}/phone', [CheckoutController::class, 'savePhone'])->name('checkout.phone');
 });
 
 Route::prefix('merchant')->name('merchant.')->group(function () {

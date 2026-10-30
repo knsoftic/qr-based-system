@@ -36,14 +36,19 @@ class SmsMatchingTest extends TestCase
 
     private int $accountSeq = 0;
 
-    private function pendingPayment(string $amount = '1500.00', array $data = []): Payment
+    private function pendingPayment(string $amount = '1500.00', array $data = [], ?string $claimed = null): Payment
     {
         [$merchant, $secret] = $this->makeMerchant();
         // A unique account each time, so two same-amount payments can coexist.
         $this->makeAccount('PK00DEMO'.str_pad((string) ++$this->accountSeq, 16, '0', STR_PAD_LEFT));
         $this->createPayment($merchant, $secret, $data + ['amount' => $amount, 'callback_url' => 'https://shop.example.com/cb'])->assertCreated();
 
-        return Payment::query()->latest('id')->firstOrFail();
+        $payment = Payment::query()->latest('id')->firstOrFail();
+        if ($claimed) {
+            $payment->forceFill(['claimed_phone' => $claimed])->save();
+        }
+
+        return $payment;
     }
 
     private function receive(string $key, string $body, ?string $amount = null)
@@ -178,6 +183,51 @@ class SmsMatchingTest extends TestCase
             ->assertSee('Auto-verified')
             ->assertSee('03001234567')
             ->assertSee($payment->transaction_id);
+    }
+
+    public function test_an_sms_from_a_personal_mobile_number_is_not_trusted(): void
+    {
+        $key = $this->key();
+        $payment = $this->pendingPayment('1500.00');
+
+        // Sender is an 11-digit mobile, not an authorized short code / sender ID.
+        $this->withToken($key)->postJson('/api/v1/sms', [
+            'message_id' => \Illuminate\Support\Str::uuid()->toString(),
+            'sender' => '03009998877',
+            'body' => 'Rs. 1,500.00 received from 03001234567. TID 1.',
+            'received_at' => now()->getTimestampMs(),
+        ])->assertJsonPath('auto_verified', false);
+
+        $this->assertSame(PaymentStatus::Pending, $payment->fresh()->status);
+    }
+
+    public function test_the_payer_number_identifies_the_right_order_among_same_amount(): void
+    {
+        $key = $this->key();
+        // Two orders, same amount, different payer numbers entered at checkout.
+        $ali = $this->pendingPayment('1500.00', ['order_id' => 'ALI'], claimed: '03001111111');
+        $sana = $this->pendingPayment('1500.00', ['order_id' => 'SANA'], claimed: '03002222222');
+
+        $this->receive($key, 'Rs. 1,500.00 received from 0300-2222222 Sana. TID 44.')
+            ->assertJsonPath('auto_verified', true);
+
+        // Only Sana's order (matching number) is verified; Ali's stays pending.
+        $this->assertSame(PaymentStatus::Paid, $sana->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $ali->fresh()->status);
+        $this->assertSame('03002222222', $sana->fresh()->payer_phone);
+        $this->assertStringContainsString('matches the number the customer entered', $sana->fresh()->verification_reason);
+    }
+
+    public function test_a_payer_number_that_matches_no_order_is_not_auto_verified(): void
+    {
+        $key = $this->key();
+        // The only order of this amount expected a different payer number.
+        $payment = $this->pendingPayment('1500.00', claimed: '03001111111');
+
+        $this->receive($key, 'Rs. 1,500.00 received from 03009999999 Someone. TID 5.')
+            ->assertJsonPath('auto_verified', false);
+
+        $this->assertSame(PaymentStatus::Pending, $payment->fresh()->status);
     }
 
     public function test_admin_can_change_auto_verify_settings(): void

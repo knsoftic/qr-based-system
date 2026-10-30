@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Merchant portal') · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=3">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=4">
 </head>
 <body>
 @php

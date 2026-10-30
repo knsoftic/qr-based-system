@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Pay {{ $payment->currency }} {{ number_format($payment->amount, 2) }} · {{ $payment->merchant->name }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=3">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=4">
 </head>
 <body class="checkout-body">
 <main class="checkout" id="checkout"
@@ -25,6 +25,33 @@
             <div class="checkout-description">{{ $payment->description }}</div>
         @endif
     </header>
+
+    @if ($payment->isPending())
+        <section class="checkout-phone" id="phone-step">
+            @if ($payment->claimed_phone)
+                <div class="phone-saved">
+                    <span><x-icon name="check" :size="16" /> Pay from <strong class="mono">{{ $payment->claimed_phone }}</strong></span>
+                    <a href="#" onclick="document.getElementById('phone-form').hidden=false;this.parentElement.hidden=true;return false;">Change</a>
+                </div>
+                <form method="POST" action="{{ route('checkout.phone', $payment->payment_id) }}" id="phone-form" class="phone-form" hidden>
+                    @csrf
+                    <input type="tel" name="claimed_phone" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ $payment->claimed_phone }}" required>
+                    <button type="submit" class="btn btn--primary">Save</button>
+                </form>
+            @else
+                <div class="phone-prompt">
+                    <strong>Enter the mobile number you will pay from</strong>
+                    <p>Type the mobile number of the <strong>account you will send this payment from</strong>. We use it to confirm your payment automatically. Enter it, then scan the QR and pay from that same number.</p>
+                </div>
+                <form method="POST" action="{{ route('checkout.phone', $payment->payment_id) }}" class="phone-form">
+                    @csrf
+                    <input type="tel" name="claimed_phone" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ old('claimed_phone') }}" required autofocus>
+                    <button type="submit" class="btn btn--primary">Save number</button>
+                </form>
+                @error('claimed_phone')<div class="phone-error">{{ $message }}</div>@enderror
+            @endif
+        </section>
+    @endif
 
     <section class="checkout-qr">
         <div id="qr-frame" @class(['qr-frame', 'is-hidden' => ! $qrSvg])>

@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Payments\PaymentService;
 use App\Payments\Qr\QrRenderer;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -34,6 +35,7 @@ class CheckoutController extends Controller
             ->view('checkout.show', [
                 'payment' => $payment,
                 'qrSvg' => $qrSvg,
+                'needsPhone' => $payment->isPending() && ! $payment->claimed_phone,
                 'redirectUrl' => $this->redirectUrl($payment),
             ])
             ->header('Cache-Control', 'no-store, private');
@@ -48,6 +50,36 @@ class CheckoutController extends Controller
             'remaining_seconds' => $payment->remainingSeconds(),
             'redirect_url' => $this->redirectUrl($payment),
         ])->header('Cache-Control', 'no-store, private');
+    }
+
+    /**
+     * The customer tells us the mobile number they will pay FROM, so the
+     * payment SMS can be matched to this exact order.
+     */
+    public function savePhone(Request $request, string $paymentId): RedirectResponse
+    {
+        $payment = $this->find($paymentId);
+
+        if (! $payment->isPending()) {
+            return redirect()->route('checkout.show', $paymentId);
+        }
+
+        $data = $request->validate([
+            'claimed_phone' => ['required', 'string', 'regex:/^(\+?92|0)?3\d{2}[\s-]?\d{7}$/'],
+        ], [
+            'claimed_phone.regex' => 'Enter a valid mobile number, e.g. 03001234567.',
+        ]);
+
+        $digits = preg_replace('/\D/', '', $data['claimed_phone']);
+        $digits = preg_replace('/^92/', '0', $digits);
+        if (strlen($digits) === 10) {
+            $digits = '0'.$digits;
+        }
+
+        $payment->forceFill(['claimed_phone' => $digits])->save();
+        $this->payments->log($payment, 'payer_number_entered', actor: 'customer', data: ['phone' => $digits], ip: $request->ip());
+
+        return redirect()->route('checkout.show', $paymentId);
     }
 
     private function find(string $paymentId): Payment

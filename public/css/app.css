@@ -591,7 +591,17 @@ pre.json {
 .checkout-amount .currency { font-size: 1rem; font-weight: 700; color: rgba(255, 255, 255, .8); margin-right: .25rem; }
 .checkout-description { color: rgba(255, 255, 255, .8); font-size: .9rem; margin-top: .25rem; }
 
-.checkout-qr { padding: 0 1.5rem; margin-top: -1.6rem; }
+.checkout-phone { padding: 1.25rem 1.5rem 0; }
+.phone-prompt strong { display: block; color: var(--text); margin-bottom: .25rem; }
+.phone-prompt p { color: var(--muted); font-size: .88rem; margin-bottom: .75rem; }
+.phone-form { display: flex; gap: .5rem; }
+.phone-form input { flex: 1; font-family: var(--mono); letter-spacing: .03em; }
+.phone-form .btn { white-space: nowrap; }
+.phone-saved { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem .9rem; background: var(--success-soft); border: 1px solid var(--success-border); border-radius: var(--radius-sm); color: #065f46; }
+.phone-saved .icon { vertical-align: -3px; color: var(--success); }
+.phone-error { color: var(--danger); font-size: .85rem; margin-top: .4rem; }
+
+.checkout-qr { padding: 0 1.5rem; margin-top: 1rem; }
 
 .qr-frame {
     width: 100%;

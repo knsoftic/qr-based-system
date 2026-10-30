@@ -112,6 +112,24 @@ class SmsMessage extends Model
     }
 
     /**
+     * Only an SMS from an authorized sender (a short code like "8558" or a
+     * sender ID like "JazzCash") can verify a payment. A message from a
+     * personal mobile number is never trusted: a customer could send one.
+     */
+    public static function isAuthorizedSender(?string $sender): bool
+    {
+        $sender = trim((string) $sender);
+
+        if ($sender === '' || self::detectPayerPhone($sender) !== null) {
+            return false;
+        }
+
+        // Alphabetic sender ID (JazzCash, easypaisa, HBL, ...) or a 3–8 digit short code.
+        return preg_match('/^[A-Za-z][A-Za-z0-9 ._-]{1,19}$/', $sender) === 1
+            || preg_match('/^\d{3,8}$/', $sender) === 1;
+    }
+
+    /**
      * First "Rs 1,500" / "PKR 1500.00" style amount in an SMS, or null.
      */
     public static function detectAmount(string $body): ?string
