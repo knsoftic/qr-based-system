@@ -167,10 +167,12 @@
             <div class="card-head"><h2>Allowed mobile codes</h2></div>
             <div class="card-body">
                 <p class="hint mt-0">The customer's pay-from number must start with an allowed code. Untick a company to block it; leave the whole list empty to allow every number. Codes are 4 digits (e.g. <span class="mono">0300</span>), comma separated.</p>
+                <div class="table-wrap">
                 <table class="codes-table">
                     <thead><tr><th>Company / wallet</th><th>Prefixes (0300, 0345 …)</th><th class="codes-allow">Allowed</th><th></th></tr></thead>
                     <tbody id="codes-rows"></tbody>
                 </table>
+                </div>
                 <button type="button" class="btn btn--sm" id="codes-add">+ Add company</button>
                 <input type="hidden" name="codes_json" id="codes_json">
             </div>

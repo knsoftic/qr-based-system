@@ -115,6 +115,11 @@ code, .mono { font-family: var(--mono); font-size: .88em; }
 
 .brand-sub { display: block; font-size: .72rem; font-weight: 500; color: var(--sidebar-muted); letter-spacing: 0; }
 
+/* Mobile nav toggle (hamburger) — hidden on desktop, shown under 820px. */
+.nav-toggle { display: none; }
+.nav-burger { display: none; align-items: center; justify-content: center; margin-left: auto; cursor: pointer; color: #fff; font-size: 1.5rem; line-height: 1; padding: .1rem .45rem; border-radius: 8px; user-select: none; }
+.nav-burger:hover { background: rgba(255, 255, 255, .1); }
+
 .nav-section {
     font-size: .68rem;
     font-weight: 600;
@@ -717,7 +722,7 @@ pre.json {
 /* Admin: checkout branding editor */
 .brand-preview { padding: .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); display: inline-block; margin-bottom: .5rem; }
 .brand-preview img { max-height: 48px; max-width: 220px; display: block; }
-.codes-table { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; }
+.codes-table { width: 100%; min-width: 440px; border-collapse: collapse; margin: .5rem 0 1rem; }
 .codes-table th { text-align: left; font-size: .8rem; color: var(--muted); padding: .4rem .5rem; font-weight: 600; }
 .codes-table td { padding: .3rem .5rem; border-top: 1px solid var(--border); vertical-align: middle; }
 .codes-table .codes-allow { text-align: center; width: 70px; }
@@ -778,12 +783,18 @@ pre.json {
 }
 
 @media (max-width: 820px) {
-    .admin { grid-template-columns: 1fr; }
-    .sidebar { position: static; height: auto; padding-bottom: .75rem; }
-    .nav { display: flex; flex-wrap: wrap; gap: .25rem; }
+    .admin { display: block; }
+    .sidebar { position: static; height: auto; padding: .85rem 1rem; }
+    .brand { padding-bottom: 0; }
+    .nav-burger { display: inline-flex; }
+    .nav { display: none; flex-wrap: wrap; gap: .25rem; width: 100%; margin-top: .6rem; }
+    .nav-toggle:checked ~ .sidebar .nav { display: flex; }
     .nav a.active::before { display: none; }
     .nav-section { width: 100%; padding-top: .5rem; }
     .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
     .content, .topbar, .docs-top { padding-left: 1rem; padding-right: 1rem; }
+    .content { padding-top: 1.25rem; padding-bottom: 2.5rem; }
     .kv { grid-template-columns: 1fr; }
+    .page-head { flex-direction: column; align-items: flex-start; gap: .6rem; }
+    .topbar { flex-wrap: wrap; gap: .5rem; }
 }

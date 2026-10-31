@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Merchant portal') · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=8">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=10">
 </head>
 <body>
 @php
@@ -13,10 +13,12 @@
     $initials = collect(explode(' ', $merchant->name))->filter()->map(fn ($part) => mb_substr($part, 0, 1))->take(2)->implode('');
 @endphp
 <div class="admin">
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-hidden="true">
     <aside class="sidebar">
         <div class="brand">
             <span class="brand-mark">QR</span>
             <span>{{ config('app.name') }}<span class="brand-sub">Merchant portal</span></span>
+            <label for="nav-toggle" class="nav-burger" aria-label="Toggle menu" role="button">☰</label>
         </div>
         <nav class="nav">
             <a href="{{ route('merchant.dashboard') }}" @class(['active' => request()->routeIs('merchant.dashboard')])><x-icon name="dashboard" /> Dashboard</a>

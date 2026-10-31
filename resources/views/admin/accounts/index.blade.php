@@ -22,6 +22,7 @@
             <div class="card-head"><h2>Payment channels</h2></div>
             <div class="card-body">
                 <p class="hint mt-0">Put a whole payment method (channel) into maintenance — every account of that channel stops receiving new payments, while other channels and the website keep working.</p>
+                <div class="table-wrap">
                 <table class="codes-table">
                     <thead><tr><th>Channel</th><th class="num">Accounts</th><th>State</th><th></th></tr></thead>
                     <tbody>
@@ -51,6 +52,7 @@
                     @endforeach
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     @endif

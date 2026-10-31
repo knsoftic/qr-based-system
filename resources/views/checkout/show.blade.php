@@ -13,7 +13,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Pay {{ $payment->currency }} {{ number_format($payment->amount, 2) }} · {{ $payment->merchant->name }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=9">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=10">
     @if ($theme->needsGoogleFont())
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

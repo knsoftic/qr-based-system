@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Admin') · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=9">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=10">
 </head>
 <body>
 @php
@@ -35,10 +35,12 @@
     ];
 @endphp
 <div class="admin">
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-hidden="true">
     <aside class="sidebar">
         <div class="brand">
             <span class="brand-mark">QR</span>
             <span>{{ config('app.name') }}<span class="brand-sub">Admin console</span></span>
+            <label for="nav-toggle" class="nav-burger" aria-label="Toggle menu" role="button">☰</label>
         </div>
 
         <nav class="nav">
