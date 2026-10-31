@@ -50,12 +50,13 @@ trait GatewayHelpers
         $account = $this->makeAccount('PK00DEMO'.str_pad((string) $merchant->id, 16, '0', STR_PAD_LEFT));
         $id = uniqid();
 
-        $merchant->payments()->create([
+        $payment = $merchant->payments()->create([
             'payment_id' => 'pay_'.$id, 'transaction_id' => 'TXN'.$id, 'payment_account_id' => $account->id,
             'order_id' => 'FUND-'.$id, 'amount' => $net, 'currency' => 'PKR', 'fee_amount' => 0, 'net_amount' => $net,
             'status' => 'paid', 'qr_payload' => 'x', 'idempotency_key' => 'fund-'.$id, 'request_hash' => hash('sha256', $id),
-            'expires_at' => now()->addMinutes(5), 'paid_at' => now(),
+            'expires_at' => now()->addMinutes(5),
         ]);
+        $payment->forceFill(['paid_at' => now()])->save(); // paid_at is not mass-assignable
     }
 
     protected function makeAccount(string $accountNumber = 'PK00DEMO0000001234567890', array $attributes = []): PaymentAccount

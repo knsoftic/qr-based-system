@@ -24,6 +24,7 @@
         ['admin.payouts.index', 'Payouts', 'payout', request()->routeIs('admin.payouts.*'), 'payouts.view', $pendingPayouts ?: null],
         ['admin.checkout.edit', 'Checkout Page', 'qr', request()->routeIs('admin.checkout.*'), 'checkout.manage'],
         ['admin.reports', 'Reports', 'chart', request()->routeIs('admin.reports'), 'reports.view'],
+        ['admin.settlements.index', 'Settlements', 'percent', request()->routeIs('admin.settlements.*'), 'settlements.view'],
     ];
     $sms = [
         ['admin.sms.index', 'SMS Inbox', 'message', request()->routeIs('admin.sms.index')],

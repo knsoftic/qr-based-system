@@ -76,6 +76,20 @@ class User extends Authenticatable
         return $this->hasMany(self::class, 'parent_id');
     }
 
+    /**
+     * Merchants in this staff member's downline: the ones they own directly
+     * plus the ones owned by their team (a manager's agents). Used for
+     * commission / settlement and read-only tracking.
+     *
+     * @return list<int>
+     */
+    public function downlineMerchantIds(): array
+    {
+        $staffIds = array_merge([$this->id], $this->team()->pluck('id')->all());
+
+        return Merchant::query()->whereIn('agent_id', $staffIds)->pluck('id')->all();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPER;

@@ -38,6 +38,7 @@ class Permissions
         'Reports & logs' => [
             'reports.view' => 'View reports',
             'logs.view' => 'View logs',
+            'settlements.view' => 'View settlements / earnings',
         ],
         'SMS forwarder' => [
             'sms.view' => 'View SMS inbox / devices',
@@ -97,10 +98,10 @@ class Permissions
             'super_admin' => self::all(),
             'manager' => [
                 'merchants.view', 'accounts.view', 'transactions.view',
-                'payouts.view', 'reports.view', 'logs.view', 'sms.view',
+                'payouts.view', 'reports.view', 'logs.view', 'sms.view', 'settlements.view',
             ],
             'agent' => [
-                'requests.submit', 'merchants.view', 'transactions.view',
+                'requests.submit', 'merchants.view', 'transactions.view', 'settlements.view',
             ],
             default => [],
         };

@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\SettlementController;
 use App\Http\Controllers\Admin\SmsController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\CheckoutController;
@@ -103,6 +104,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->middleware('perm:settings.manage')->name('settings.verifier-key');
 
         Route::get('reports', ReportController::class)->middleware('perm:reports.view')->name('reports');
+
+        Route::get('settlements', [SettlementController::class, 'index'])->middleware('perm:settlements.view')->name('settlements.index');
 
         Route::get('checkout', [AdminCheckoutController::class, 'edit'])->middleware('perm:checkout.manage')->name('checkout.edit');
         Route::post('checkout', [AdminCheckoutController::class, 'update'])->middleware('perm:checkout.manage')->name('checkout.update');
