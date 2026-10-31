@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CheckoutController as AdminCheckoutController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\MerchantController;
+use App\Http\Controllers\Admin\MerchantRequestController;
 use App\Http\Controllers\Admin\PaymentAccountController;
 use App\Http\Controllers\Admin\PayoutController;
 use App\Http\Controllers\Admin\ProfileController;
@@ -83,6 +84,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('merchants/{merchant}/toggle', [MerchantController::class, 'toggle'])->middleware('perm:merchants.manage')->name('merchants.toggle');
         Route::post('merchants/{merchant}/portal-password', [MerchantController::class, 'resetPortalPassword'])->middleware('perm:merchants.manage')->name('merchants.portal-password');
         Route::post('merchants/{merchant}/test-payin', [MerchantController::class, 'testPayIn'])->middleware(['throttle:payin-test', 'perm:merchants.manage'])->name('merchants.test');
+
+        Route::get('requests', [MerchantRequestController::class, 'index'])->middleware('perm:requests.submit,requests.review')->name('requests.index');
+        Route::get('requests/create', [MerchantRequestController::class, 'create'])->middleware('perm:requests.submit')->name('requests.create');
+        Route::post('requests', [MerchantRequestController::class, 'store'])->middleware('perm:requests.submit')->name('requests.store');
+        Route::post('requests/{merchantRequest}/approve', [MerchantRequestController::class, 'approve'])->middleware('perm:requests.review')->name('requests.approve');
+        Route::post('requests/{merchantRequest}/reject', [MerchantRequestController::class, 'reject'])->middleware('perm:requests.review')->name('requests.reject');
 
         Route::get('transactions', [TransactionController::class, 'index'])->middleware('perm:transactions.view')->name('transactions.index');
         Route::get('transactions/export', [TransactionController::class, 'export'])->middleware('perm:transactions.view')->name('transactions.export');

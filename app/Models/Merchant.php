@@ -20,6 +20,7 @@ class Merchant extends Authenticatable
         'email',
         'website',
         'callback_url',
+        'agent_id',
         'payin_ip_allowlist',
         'payout_ip_allowlist',
         'fee_percent',
@@ -59,6 +60,12 @@ class Merchant extends Authenticatable
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /** The agent who owns this merchant (set from an approved request). */
+    public function agent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'agent_id');
     }
 
     /** @return list<string> */

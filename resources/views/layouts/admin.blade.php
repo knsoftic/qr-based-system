@@ -15,6 +15,7 @@
     $tab = request()->route('tab');
     $can = fn (string $p) => $admin->hasPermission($p);
     $pendingPayouts = $can('payouts.view') ? \App\Models\Payout::query()->where('status', 'pending')->count() : 0;
+    $pendingRequests = $can('requests.review') ? \App\Models\MerchantRequest::query()->where('status', 'pending')->count() : 0;
     $links = [
         ['admin.dashboard', 'Dashboard', 'dashboard', request()->routeIs('admin.dashboard'), null],
         ['admin.transactions.index', 'Transactions', 'transactions', request()->routeIs('admin.transactions.*'), 'transactions.view'],
@@ -59,6 +60,13 @@
                     </a>
                 @endif
             @endforeach
+
+            @if ($can('requests.submit') || $can('requests.review'))
+                <a href="{{ route('admin.requests.index') }}" title="Account Requests" @class(['active' => request()->routeIs('admin.requests.*')])>
+                    <x-icon name="clipboard" /> <span class="nav-label">Account Requests</span>
+                    @if ($pendingRequests)<span class="nav-badge">{{ $pendingRequests }}</span>@endif
+                </a>
+            @endif
 
             @if ($can('sms.view'))
                 <div class="nav-section">SMS forwarder</div>
