@@ -21,6 +21,7 @@
         ['admin.transactions.index', 'Transactions', 'transactions', request()->routeIs('admin.transactions.*'), 'transactions.view'],
         ['admin.accounts.index', 'Payment Accounts', 'qr', request()->routeIs('admin.accounts.*'), 'accounts.view'],
         ['admin.merchants.index', 'Merchants & API Keys', 'store', request()->routeIs('admin.merchants.*'), 'merchants.view'],
+        ['admin.downline.index', 'Downline', 'users', request()->routeIs('admin.downline.*'), 'downline.view'],
         ['admin.payouts.index', 'Payouts', 'payout', request()->routeIs('admin.payouts.*'), 'payouts.view', $pendingPayouts ?: null],
         ['admin.checkout.edit', 'Checkout Page', 'qr', request()->routeIs('admin.checkout.*'), 'checkout.manage'],
         ['admin.reports', 'Reports', 'chart', request()->routeIs('admin.reports'), 'reports.view'],

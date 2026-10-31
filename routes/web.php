@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CheckoutController as AdminCheckoutController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DownlineController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\MerchantController;
 use App\Http\Controllers\Admin\MerchantRequestController;
@@ -106,6 +107,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('reports', ReportController::class)->middleware('perm:reports.view')->name('reports');
 
         Route::get('settlements', [SettlementController::class, 'index'])->middleware('perm:settlements.view')->name('settlements.index');
+
+        Route::get('downline', [DownlineController::class, 'index'])->middleware('perm:downline.view')->name('downline.index');
+        Route::get('downline/{merchant}', [DownlineController::class, 'show'])->middleware('perm:downline.view')->name('downline.show');
 
         Route::get('checkout', [AdminCheckoutController::class, 'edit'])->middleware('perm:checkout.manage')->name('checkout.edit');
         Route::post('checkout', [AdminCheckoutController::class, 'update'])->middleware('perm:checkout.manage')->name('checkout.update');

@@ -20,6 +20,9 @@ class Permissions
             'requests.submit' => 'Submit account-creation requests',
             'requests.review' => 'Approve / reject requests',
         ],
+        'Downline' => [
+            'downline.view' => 'Track own downline (merchants, orders, callbacks)',
+        ],
         'Payment accounts' => [
             'accounts.view' => 'View payment accounts',
             'accounts.create' => 'Add payment accounts',
@@ -98,10 +101,10 @@ class Permissions
             'super_admin' => self::all(),
             'manager' => [
                 'merchants.view', 'accounts.view', 'transactions.view',
-                'payouts.view', 'reports.view', 'logs.view', 'sms.view', 'settlements.view',
+                'payouts.view', 'reports.view', 'logs.view', 'sms.view', 'settlements.view', 'downline.view',
             ],
             'agent' => [
-                'requests.submit', 'merchants.view', 'transactions.view', 'settlements.view',
+                'requests.submit', 'merchants.view', 'transactions.view', 'settlements.view', 'downline.view',
             ],
             default => [],
         };
