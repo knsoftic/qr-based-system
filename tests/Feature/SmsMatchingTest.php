@@ -218,6 +218,24 @@ class SmsMatchingTest extends TestCase
         $this->assertStringContainsString('matches the number the customer entered', $sana->fresh()->verification_reason);
     }
 
+    public function test_several_orders_from_the_same_number_verify_the_latest(): void
+    {
+        $key = $this->key();
+        // One customer (same number) placed several same-amount orders in the
+        // window; the payment should land on the most recent one.
+        $first = $this->pendingPayment('1500.00', ['order_id' => 'O1'], claimed: '03001234567');
+        $second = $this->pendingPayment('1500.00', ['order_id' => 'O2'], claimed: '03001234567');
+        $latest = $this->pendingPayment('1500.00', ['order_id' => 'O3'], claimed: '03001234567');
+
+        $this->receive($key, 'Rs. 1,500.00 received from 03001234567 Ali. TID 9.')
+            ->assertJsonPath('auto_verified', true);
+
+        $this->assertSame(PaymentStatus::Paid, $latest->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $first->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $second->fresh()->status);
+        $this->assertStringContainsString('most recent of several open orders', $latest->fresh()->verification_reason);
+    }
+
     public function test_a_unique_amount_order_still_verifies_when_the_payer_number_differs(): void
     {
         $key = $this->key();

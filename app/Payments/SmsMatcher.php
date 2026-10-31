@@ -51,31 +51,38 @@ class SmsMatcher
         }
 
         $unique = $list->count() === 1;
-        $chosen = $unique ? $list->first() : ($list->firstWhere('status', PaymentStatus::Pending) ?? $list->first());
+        // Among several matches, the most recent order is the active payment.
+        $chosen = $this->pickLatest($list);
         $score = $this->score($sms, $chosen, $mode, $unique);
         $threshold = (int) $this->settings->get('verification.sms_threshold', 80);
+
+        // The payer number identifies one customer, so when it matches several
+        // same-amount orders we still auto-verify the latest of them. An
+        // amount-only match must be unique, since different customers could
+        // coincidentally share an amount.
+        $resolved = $mode === 'phone' || $unique;
 
         $canAuto = (bool) $this->settings->get('verification.sms_auto_verify', true)
             && $sms->isCredit()
             && SmsMessage::isAuthorizedSender($sms->sender)
-            && $unique
+            && $resolved
             && $score >= $threshold;
 
-        if ($canAuto && $this->verify($sms, $chosen, $score, $mode)) {
+        if ($canAuto && $this->verify($sms, $chosen, $score, $mode, ! $unique)) {
             return;
         }
 
         $sms->forceFill([
-            'matched_payment_id' => $unique ? $chosen->id : null,
+            'matched_payment_id' => $resolved ? $chosen->id : null,
             'match_score' => $score,
             'auto_verified' => false,
         ])->save();
     }
 
-    private function verify(SmsMessage $sms, Payment $payment, int $score, string $mode): bool
+    private function verify(SmsMessage $sms, Payment $payment, int $score, string $mode, bool $amongMany = false): bool
     {
         $reference = $sms->bank_ref ?: ('SMS#'.$sms->id);
-        $reason = $this->reason($sms, $payment, $score, $mode);
+        $reason = $this->reason($sms, $payment, $score, $mode, $amongMany);
 
         $verified = $this->payments->transition($payment, PaymentStatus::Paid, 'sms', [
             'reference' => $reference,
@@ -110,6 +117,18 @@ class SmsMatcher
         ], byAdmin: false);
 
         return true;
+    }
+
+    /**
+     * The order to attribute the payment to when several match: the most
+     * recently created open order (a pending one over an expired one).
+     */
+    private function pickLatest(Collection $list): Payment
+    {
+        $pending = $list->where('status', PaymentStatus::Pending);
+        $pool = $pending->isNotEmpty() ? $pending : $list;
+
+        return $pool->sortByDesc('id')->first();
     }
 
     /**
@@ -173,13 +192,16 @@ class SmsMatcher
         return min(100, $score);
     }
 
-    private function reason(SmsMessage $sms, Payment $payment, int $score, string $mode): string
+    private function reason(SmsMessage $sms, Payment $payment, int $score, string $mode, bool $amongMany = false): string
     {
         $amount = $payment->currency.' '.number_format((float) $payment->amount, 2);
         $sender = $sms->sender;
 
         if ($mode === 'phone') {
             $reason = "SMS from {$sender} reported {$amount} received from {$sms->payer_phone}, which matches the number the customer entered at checkout and the order amount.";
+            if ($amongMany) {
+                $reason .= ' Verified the most recent of several open orders from this number of that amount.';
+            }
         } else {
             $reason = "SMS from {$sender} reported {$amount} received, matching the only open order of that amount.";
 
