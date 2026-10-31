@@ -5,21 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Admin') · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=10">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=11">
+    <script>try{if(localStorage.getItem('rqSidebar')==='mini')document.documentElement.classList.add('sidebar-collapsed');}catch(e){}</script>
 </head>
 <body>
 @php
     $admin = auth()->user();
     $initials = collect(explode(' ', $admin->name))->filter()->map(fn ($part) => mb_substr($part, 0, 1))->take(2)->implode('');
     $tab = request()->route('tab');
+    $pendingPayouts = \App\Models\Payout::query()->where('status', 'pending')->count();
     $links = [
         ['admin.dashboard', 'Dashboard', 'dashboard', request()->routeIs('admin.dashboard')],
         ['admin.transactions.index', 'Transactions', 'transactions', request()->routeIs('admin.transactions.*')],
         ['admin.accounts.index', 'Payment Accounts', 'qr', request()->routeIs('admin.accounts.*')],
         ['admin.merchants.index', 'Merchants & API Keys', 'store', request()->routeIs('admin.merchants.*')],
-        ['admin.payouts.index', 'Payouts', 'payout', request()->routeIs('admin.payouts.*')],
+        ['admin.payouts.index', 'Payouts', 'payout', request()->routeIs('admin.payouts.*'), $pendingPayouts ?: null],
         ['admin.checkout.edit', 'Checkout Page', 'qr', request()->routeIs('admin.checkout.*')],
         ['admin.reports', 'Reports', 'chart', request()->routeIs('admin.reports')],
+    ];
+    $sms = [
+        ['admin.sms.index', 'SMS Inbox', 'message', request()->routeIs('admin.sms.index')],
+        ['admin.sms.devices', 'SMS Devices', 'phone', request()->routeIs('admin.sms.devices')],
     ];
     $settings = [
         ['payin', 'Pay-In', 'payin'],
@@ -29,9 +35,9 @@
         ['verification', 'Verification', 'shield'],
     ];
     $logs = [
-        ['admin.logs.events', 'Transaction Logs', 'list'],
-        ['admin.logs.callbacks', 'Callback Logs', 'send'],
-        ['admin.logs.audit', 'Audit Log', 'clipboard'],
+        ['admin.logs.events', 'Transaction Logs', 'list', request()->routeIs('admin.logs.events')],
+        ['admin.logs.callbacks', 'Callback Logs', 'send', request()->routeIs('admin.logs.callbacks')],
+        ['admin.logs.audit', 'Audit Log', 'clipboard', request()->routeIs('admin.logs.audit')],
     ];
 @endphp
 <div class="admin">
@@ -39,33 +45,41 @@
     <aside class="sidebar">
         <div class="brand">
             <span class="brand-mark">QR</span>
-            <span>{{ config('app.name') }}<span class="brand-sub">Admin console</span></span>
+            <span class="brand-name">{{ config('app.name') }}<span class="brand-sub">Admin console</span></span>
             <label for="nav-toggle" class="nav-burger" aria-label="Toggle menu" role="button">☰</label>
         </div>
 
         <nav class="nav">
-            @foreach ($links as [$route, $label, $icon, $active])
-                <a href="{{ route($route) }}" @class(['active' => $active])><x-icon :name="$icon" /> {{ $label }}</a>
+            @foreach ($links as $link)
+                <a href="{{ route($link[0]) }}" title="{{ $link[1] }}" @class(['active' => $link[3]])>
+                    <x-icon :name="$link[2]" /> <span class="nav-label">{{ $link[1] }}</span>
+                    @if ($link[4] ?? null)<span class="nav-badge">{{ $link[4] }}</span>@endif
+                </a>
             @endforeach
 
             <div class="nav-section">SMS forwarder</div>
-            <a href="{{ route('admin.sms.index') }}" @class(['active' => request()->routeIs('admin.sms.index')])><x-icon name="message" /> SMS Inbox</a>
-            <a href="{{ route('admin.sms.devices') }}" @class(['active' => request()->routeIs('admin.sms.devices')])><x-icon name="phone" /> SMS Devices</a>
+            @foreach ($sms as $link)
+                <a href="{{ route($link[0]) }}" title="{{ $link[1] }}" @class(['active' => $link[3]])><x-icon :name="$link[2]" /> <span class="nav-label">{{ $link[1] }}</span></a>
+            @endforeach
 
             <div class="nav-section">Settings</div>
             @foreach ($settings as [$key, $label, $icon])
-                <a href="{{ route('admin.settings.edit', $key) }}" @class(['active' => request()->routeIs('admin.settings.*') && ($tab ?? 'payin') === $key])><x-icon :name="$icon" /> {{ $label }}</a>
+                <a href="{{ route('admin.settings.edit', $key) }}" title="{{ $label }}" @class(['active' => request()->routeIs('admin.settings.*') && ($tab ?? 'payin') === $key])><x-icon :name="$icon" /> <span class="nav-label">{{ $label }}</span></a>
             @endforeach
 
             <div class="nav-section">Logs</div>
-            @foreach ($logs as [$route, $label, $icon])
-                <a href="{{ route($route) }}" @class(['active' => request()->routeIs($route)])><x-icon :name="$icon" /> {{ $label }}</a>
+            @foreach ($logs as $link)
+                <a href="{{ route($link[0]) }}" title="{{ $link[1] }}" @class(['active' => $link[3]])><x-icon :name="$link[2]" /> <span class="nav-label">{{ $link[1] }}</span></a>
             @endforeach
 
             <div class="nav-section">System</div>
-            <a href="{{ route('admin.admins.index') }}" @class(['active' => request()->routeIs('admin.admins.*')])><x-icon name="users" /> Admin Users</a>
-            <a href="{{ route('docs') }}" target="_blank" rel="noopener"><x-icon name="book" /> API Docs <x-icon name="external" :size="14" class="nav-external" /></a>
+            <a href="{{ route('admin.admins.index') }}" title="Admin Users" @class(['active' => request()->routeIs('admin.admins.*')])><x-icon name="users" /> <span class="nav-label">Admin Users</span></a>
+            <a href="{{ route('docs') }}" target="_blank" rel="noopener" title="API Docs"><x-icon name="book" /> <span class="nav-label">API Docs</span> <x-icon name="external" :size="14" class="nav-external" /></a>
         </nav>
+
+        <button type="button" class="sidebar-toggle" title="Collapse / expand sidebar">
+            <span class="sidebar-toggle-icon">«</span> <span class="nav-label">Collapse</span>
+        </button>
     </aside>
 
     <div class="main">
@@ -102,5 +116,11 @@
         </main>
     </div>
 </div>
+<script>
+    document.querySelector('.sidebar-toggle')?.addEventListener('click', function () {
+        var mini = document.documentElement.classList.toggle('sidebar-collapsed');
+        try { localStorage.setItem('rqSidebar', mini ? 'mini' : 'full'); } catch (e) {}
+    });
+</script>
 </body>
 </html>

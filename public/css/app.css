@@ -81,11 +81,13 @@ code, .mono { font-family: var(--mono); font-size: .88em; }
 .sidebar {
     background: var(--sidebar);
     color: var(--sidebar-text);
-    padding: 1.25rem .85rem 1.5rem;
+    padding: 1.25rem .85rem 1.1rem;
     position: sticky;
     top: 0;
     height: 100vh;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .brand {
@@ -129,6 +131,17 @@ code, .mono { font-family: var(--mono); font-size: .88em; }
     padding: 1.1rem .65rem .4rem;
 }
 
+.nav {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .18) transparent;
+}
+.nav::-webkit-scrollbar { width: 6px; }
+.nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .16); border-radius: 3px; }
+.nav::-webkit-scrollbar-track { background: transparent; }
+
 .nav a {
     position: relative;
     display: flex;
@@ -139,8 +152,10 @@ code, .mono { font-family: var(--mono); font-size: .88em; }
     border-radius: 9px;
     font-weight: 500;
     margin-bottom: 2px;
+    white-space: nowrap;
     transition: background .15s, color .15s;
 }
+.nav-label { overflow: hidden; text-overflow: ellipsis; }
 
 .nav a .icon { opacity: .75; }
 .nav a:hover { background: rgba(255, 255, 255, .07); color: #fff; text-decoration: none; }
@@ -165,6 +180,65 @@ code, .mono { font-family: var(--mono); font-size: .88em; }
 }
 
 .nav .nav-external { margin-left: auto; opacity: .5; }
+
+/* Count badge on a nav item (e.g. pending payouts) */
+.nav-badge {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: #f43f5e;
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px -2px rgba(244, 63, 94, .8);
+}
+
+/* Collapse / expand control pinned to the sidebar bottom */
+.sidebar-toggle {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    width: 100%;
+    margin-top: .6rem;
+    padding: .55rem .65rem;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 0;
+    background: transparent;
+    color: var(--sidebar-muted);
+    font-weight: 500;
+    font-size: .85rem;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.sidebar-toggle:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.sidebar-toggle-icon { font-size: 1.05rem; line-height: 1; transition: transform .2s; }
+
+/* Collapsed (mini) sidebar — desktop only */
+@media (min-width: 821px) {
+    html.sidebar-collapsed .admin { grid-template-columns: 74px 1fr; }
+    html.sidebar-collapsed .sidebar { padding-left: .5rem; padding-right: .5rem; }
+    html.sidebar-collapsed .brand { justify-content: center; padding-left: 0; padding-right: 0; }
+    html.sidebar-collapsed .brand-name { display: none; }
+    html.sidebar-collapsed .nav a { justify-content: center; padding-left: 0; padding-right: 0; }
+    html.sidebar-collapsed .nav-label,
+    html.sidebar-collapsed .nav .nav-external { display: none; }
+    html.sidebar-collapsed .nav a.active::before { left: -.5rem; }
+    html.sidebar-collapsed .nav-section { font-size: 0; text-align: center; padding: .9rem 0 .35rem; }
+    html.sidebar-collapsed .nav-section::after { content: "•••"; font-size: .6rem; letter-spacing: .1em; color: var(--sidebar-muted); }
+    html.sidebar-collapsed .nav-badge {
+        position: absolute; top: 3px; right: 5px; margin: 0;
+        min-width: 15px; height: 15px; padding: 0 3px; font-size: .6rem;
+    }
+    html.sidebar-collapsed .sidebar-toggle { justify-content: center; }
+    html.sidebar-collapsed .sidebar-toggle-icon { transform: rotate(180deg); }
+}
 
 .main { min-width: 0; display: flex; flex-direction: column; }
 
@@ -787,7 +861,8 @@ pre.json {
     .sidebar { position: static; height: auto; padding: .85rem 1rem; }
     .brand { padding-bottom: 0; }
     .nav-burger { display: inline-flex; }
-    .nav { display: none; flex-wrap: wrap; gap: .25rem; width: 100%; margin-top: .6rem; }
+    .sidebar-toggle { display: none; }
+    .nav { display: none; flex-wrap: wrap; gap: .25rem; width: 100%; margin-top: .6rem; overflow: visible; }
     .nav-toggle:checked ~ .sidebar .nav { display: flex; }
     .nav a.active::before { display: none; }
     .nav-section { width: 100%; padding-top: .5rem; }
