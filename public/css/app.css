@@ -803,6 +803,11 @@ pre.json {
 .codes-table input[type="text"] { width: 100%; }
 .form-actions { margin-top: 1.2rem; }
 
+/* Staff permission grid */
+.perm-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem 1.5rem; margin-top: .5rem; }
+.perm-group-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .45rem; }
+.perm-group label.checkbox { display: flex; align-items: center; gap: .45rem; margin-bottom: .3rem; font-size: .9rem; }
+
 /* ---------- Docs ---------- */
 
 .docs-top {

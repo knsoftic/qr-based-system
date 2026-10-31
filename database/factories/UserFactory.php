@@ -29,7 +29,22 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
+            'role' => \App\Models\User::ROLE_SUPER,
+            'permissions' => [],
         ];
+    }
+
+    /**
+     * A staff member with a specific role and permission set.
+     *
+     * @param  list<string>  $permissions
+     */
+    public function staff(string $role, array $permissions = []): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => $role,
+            'permissions' => $permissions,
+        ]);
     }
 
     /**

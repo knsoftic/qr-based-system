@@ -60,65 +60,70 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/', DashboardController::class)->name('dashboard');
 
-        Route::get('accounts', [PaymentAccountController::class, 'index'])->name('accounts.index');
-        Route::post('accounts/channels/maintenance', [PaymentAccountController::class, 'channelMaintenance'])->name('accounts.channels.maintenance');
-        Route::get('accounts/create', [PaymentAccountController::class, 'create'])->name('accounts.create');
-        Route::post('accounts', [PaymentAccountController::class, 'store'])->name('accounts.store');
-        Route::get('accounts/{account}', [PaymentAccountController::class, 'show'])->name('accounts.show');
-        Route::get('accounts/{account}/edit', [PaymentAccountController::class, 'edit'])->name('accounts.edit');
-        Route::put('accounts/{account}', [PaymentAccountController::class, 'update'])->name('accounts.update');
-        Route::post('accounts/{account}/qr', [PaymentAccountController::class, 'uploadQr'])->name('accounts.qr');
-        Route::put('accounts/{account}/payload', [PaymentAccountController::class, 'updatePayload'])->name('accounts.payload');
-        Route::post('accounts/{account}/toggle', [PaymentAccountController::class, 'toggle'])->name('accounts.toggle');
-        Route::post('accounts/{account}/maintenance', [PaymentAccountController::class, 'maintenance'])->name('accounts.maintenance');
-        Route::delete('accounts/{account}', [PaymentAccountController::class, 'destroy'])->name('accounts.destroy');
+        Route::get('accounts', [PaymentAccountController::class, 'index'])->middleware('perm:accounts.view')->name('accounts.index');
+        Route::post('accounts/channels/maintenance', [PaymentAccountController::class, 'channelMaintenance'])->middleware('perm:accounts.manage')->name('accounts.channels.maintenance');
+        Route::get('accounts/create', [PaymentAccountController::class, 'create'])->middleware('perm:accounts.create')->name('accounts.create');
+        Route::post('accounts', [PaymentAccountController::class, 'store'])->middleware('perm:accounts.create')->name('accounts.store');
+        Route::get('accounts/{account}', [PaymentAccountController::class, 'show'])->middleware('perm:accounts.view')->name('accounts.show');
+        Route::get('accounts/{account}/edit', [PaymentAccountController::class, 'edit'])->middleware('perm:accounts.manage')->name('accounts.edit');
+        Route::put('accounts/{account}', [PaymentAccountController::class, 'update'])->middleware('perm:accounts.manage')->name('accounts.update');
+        Route::post('accounts/{account}/qr', [PaymentAccountController::class, 'uploadQr'])->middleware('perm:accounts.create')->name('accounts.qr');
+        Route::put('accounts/{account}/payload', [PaymentAccountController::class, 'updatePayload'])->middleware('perm:accounts.manage')->name('accounts.payload');
+        Route::post('accounts/{account}/toggle', [PaymentAccountController::class, 'toggle'])->middleware('perm:accounts.manage')->name('accounts.toggle');
+        Route::post('accounts/{account}/maintenance', [PaymentAccountController::class, 'maintenance'])->middleware('perm:accounts.manage')->name('accounts.maintenance');
+        Route::delete('accounts/{account}', [PaymentAccountController::class, 'destroy'])->middleware('perm:accounts.delete')->name('accounts.destroy');
 
-        Route::get('merchants', [MerchantController::class, 'index'])->name('merchants.index');
-        Route::get('merchants/create', [MerchantController::class, 'create'])->name('merchants.create');
-        Route::post('merchants', [MerchantController::class, 'store'])->name('merchants.store');
-        Route::get('merchants/{merchant}', [MerchantController::class, 'show'])->name('merchants.show');
-        Route::get('merchants/{merchant}/edit', [MerchantController::class, 'edit'])->name('merchants.edit');
-        Route::put('merchants/{merchant}', [MerchantController::class, 'update'])->name('merchants.update');
-        Route::post('merchants/{merchant}/rotate', [MerchantController::class, 'rotate'])->name('merchants.rotate');
-        Route::post('merchants/{merchant}/toggle', [MerchantController::class, 'toggle'])->name('merchants.toggle');
-        Route::post('merchants/{merchant}/portal-password', [MerchantController::class, 'resetPortalPassword'])->name('merchants.portal-password');
-        Route::post('merchants/{merchant}/test-payin', [MerchantController::class, 'testPayIn'])->middleware('throttle:payin-test')->name('merchants.test');
+        Route::get('merchants', [MerchantController::class, 'index'])->middleware('perm:merchants.view')->name('merchants.index');
+        Route::get('merchants/create', [MerchantController::class, 'create'])->middleware('perm:merchants.manage')->name('merchants.create');
+        Route::post('merchants', [MerchantController::class, 'store'])->middleware('perm:merchants.manage')->name('merchants.store');
+        Route::get('merchants/{merchant}', [MerchantController::class, 'show'])->middleware('perm:merchants.view')->name('merchants.show');
+        Route::get('merchants/{merchant}/edit', [MerchantController::class, 'edit'])->middleware('perm:merchants.manage')->name('merchants.edit');
+        Route::put('merchants/{merchant}', [MerchantController::class, 'update'])->middleware('perm:merchants.manage')->name('merchants.update');
+        Route::post('merchants/{merchant}/rotate', [MerchantController::class, 'rotate'])->middleware('perm:merchants.manage')->name('merchants.rotate');
+        Route::post('merchants/{merchant}/toggle', [MerchantController::class, 'toggle'])->middleware('perm:merchants.manage')->name('merchants.toggle');
+        Route::post('merchants/{merchant}/portal-password', [MerchantController::class, 'resetPortalPassword'])->middleware('perm:merchants.manage')->name('merchants.portal-password');
+        Route::post('merchants/{merchant}/test-payin', [MerchantController::class, 'testPayIn'])->middleware(['throttle:payin-test', 'perm:merchants.manage'])->name('merchants.test');
 
-        Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
-        Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
-        Route::get('transactions/{payment}', [TransactionController::class, 'show'])->name('transactions.show');
-        Route::post('transactions/{payment}/paid', [TransactionController::class, 'markPaid'])->name('transactions.paid');
-        Route::post('transactions/{payment}/failed', [TransactionController::class, 'markFailed'])->name('transactions.failed');
-        Route::post('transactions/{payment}/callback', [TransactionController::class, 'resendCallback'])->name('transactions.callback');
+        Route::get('transactions', [TransactionController::class, 'index'])->middleware('perm:transactions.view')->name('transactions.index');
+        Route::get('transactions/export', [TransactionController::class, 'export'])->middleware('perm:transactions.view')->name('transactions.export');
+        Route::get('transactions/{payment}', [TransactionController::class, 'show'])->middleware('perm:transactions.view')->name('transactions.show');
+        Route::post('transactions/{payment}/paid', [TransactionController::class, 'markPaid'])->middleware('perm:transactions.manage')->name('transactions.paid');
+        Route::post('transactions/{payment}/failed', [TransactionController::class, 'markFailed'])->middleware('perm:transactions.manage')->name('transactions.failed');
+        Route::post('transactions/{payment}/callback', [TransactionController::class, 'resendCallback'])->middleware('perm:callbacks.resend')->name('transactions.callback');
 
-        Route::get('settings/{tab?}', [SettingsController::class, 'edit'])->name('settings.edit')->whereIn('tab', SettingsController::TABS);
-        Route::put('settings/{tab}', [SettingsController::class, 'update'])->name('settings.update')->whereIn('tab', SettingsController::TABS);
-        Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->name('settings.verifier-key');
+        Route::get('settings/{tab?}', [SettingsController::class, 'edit'])->middleware('perm:settings.manage')->name('settings.edit')->whereIn('tab', SettingsController::TABS);
+        Route::put('settings/{tab}', [SettingsController::class, 'update'])->middleware('perm:settings.manage')->name('settings.update')->whereIn('tab', SettingsController::TABS);
+        Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->middleware('perm:settings.manage')->name('settings.verifier-key');
 
-        Route::get('reports', ReportController::class)->name('reports');
+        Route::get('reports', ReportController::class)->middleware('perm:reports.view')->name('reports');
 
-        Route::get('checkout', [AdminCheckoutController::class, 'edit'])->name('checkout.edit');
-        Route::post('checkout', [AdminCheckoutController::class, 'update'])->name('checkout.update');
+        Route::get('checkout', [AdminCheckoutController::class, 'edit'])->middleware('perm:checkout.manage')->name('checkout.edit');
+        Route::post('checkout', [AdminCheckoutController::class, 'update'])->middleware('perm:checkout.manage')->name('checkout.update');
 
-        Route::get('payouts', [PayoutController::class, 'index'])->name('payouts.index');
-        Route::post('payouts/{payout}/paid', [PayoutController::class, 'markPaid'])->name('payouts.paid');
-        Route::post('payouts/{payout}/reject', [PayoutController::class, 'reject'])->name('payouts.reject');
+        Route::get('payouts', [PayoutController::class, 'index'])->middleware('perm:payouts.view')->name('payouts.index');
+        Route::post('payouts/{payout}/paid', [PayoutController::class, 'markPaid'])->middleware('perm:payouts.manage')->name('payouts.paid');
+        Route::post('payouts/{payout}/reject', [PayoutController::class, 'reject'])->middleware('perm:payouts.manage')->name('payouts.reject');
 
-        Route::get('sms', [SmsController::class, 'index'])->name('sms.index');
-        Route::get('sms/devices', [SmsController::class, 'devices'])->name('sms.devices');
-        Route::post('sms/devices', [SmsController::class, 'storeDevice'])->name('sms.devices.store');
-        Route::post('sms/devices/{device}/toggle', [SmsController::class, 'toggleDevice'])->name('sms.devices.toggle');
-        Route::post('sms/devices/{device}/rotate', [SmsController::class, 'rotateDevice'])->name('sms.devices.rotate');
-        Route::post('sms/settings', [SmsController::class, 'saveSettings'])->name('sms.settings');
-        Route::get('sms/app.apk', [SmsController::class, 'downloadApp'])->name('sms.app');
+        Route::get('sms', [SmsController::class, 'index'])->middleware('perm:sms.view')->name('sms.index');
+        Route::get('sms/devices', [SmsController::class, 'devices'])->middleware('perm:sms.view')->name('sms.devices');
+        Route::post('sms/devices', [SmsController::class, 'storeDevice'])->middleware('perm:sms.manage')->name('sms.devices.store');
+        Route::post('sms/devices/{device}/toggle', [SmsController::class, 'toggleDevice'])->middleware('perm:sms.manage')->name('sms.devices.toggle');
+        Route::post('sms/devices/{device}/rotate', [SmsController::class, 'rotateDevice'])->middleware('perm:sms.manage')->name('sms.devices.rotate');
+        Route::post('sms/settings', [SmsController::class, 'saveSettings'])->middleware('perm:sms.manage')->name('sms.settings');
+        Route::get('sms/app.apk', [SmsController::class, 'downloadApp'])->middleware('perm:sms.view')->name('sms.app');
 
-        Route::get('logs/audit', [LogController::class, 'audit'])->name('logs.audit');
-        Route::get('logs/transactions', [LogController::class, 'events'])->name('logs.events');
-        Route::get('logs/callbacks', [LogController::class, 'callbacks'])->name('logs.callbacks');
+        Route::get('logs/audit', [LogController::class, 'audit'])->middleware('perm:logs.view')->name('logs.audit');
+        Route::get('logs/transactions', [LogController::class, 'events'])->middleware('perm:logs.view')->name('logs.events');
+        Route::get('logs/callbacks', [LogController::class, 'callbacks'])->middleware('perm:logs.view')->name('logs.callbacks');
 
-        Route::get('admins', [AdminUserController::class, 'index'])->name('admins.index');
-        Route::post('admins', [AdminUserController::class, 'store'])->name('admins.store');
-        Route::post('admins/{user}/toggle', [AdminUserController::class, 'toggle'])->name('admins.toggle');
+        Route::middleware('perm:staff.manage')->group(function () {
+            Route::get('admins', [AdminUserController::class, 'index'])->name('admins.index');
+            Route::get('admins/create', [AdminUserController::class, 'create'])->name('admins.create');
+            Route::post('admins', [AdminUserController::class, 'store'])->name('admins.store');
+            Route::get('admins/{user}/edit', [AdminUserController::class, 'edit'])->name('admins.edit');
+            Route::put('admins/{user}', [AdminUserController::class, 'update'])->name('admins.update');
+            Route::post('admins/{user}/toggle', [AdminUserController::class, 'toggle'])->name('admins.toggle');
+        });
 
         Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');

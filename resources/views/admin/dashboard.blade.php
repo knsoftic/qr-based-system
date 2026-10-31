@@ -9,7 +9,9 @@
             <p>{{ now()->format('l, j F Y') }}</p>
         </div>
         <div class="actions">
-            <a href="{{ route('admin.accounts.create') }}" class="btn btn--primary">+ Add payment account</a>
+            @if (auth()->user()->hasPermission('accounts.create'))
+                <a href="{{ route('admin.accounts.create') }}" class="btn btn--primary">+ Add payment account</a>
+            @endif
         </div>
     </div>
 

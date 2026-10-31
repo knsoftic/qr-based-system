@@ -9,7 +9,9 @@
             <p>Websites that create payment requests through the API.</p>
         </div>
         <div class="actions">
-            <a href="{{ route('admin.merchants.create') }}" class="btn btn--primary">+ Add merchant</a>
+            @if (auth()->user()->hasPermission('merchants.manage'))
+                <a href="{{ route('admin.merchants.create') }}" class="btn btn--primary">+ Add merchant</a>
+            @endif
         </div>
     </div>
 

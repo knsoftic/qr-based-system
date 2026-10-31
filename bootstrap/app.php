@@ -4,6 +4,7 @@ use App\Http\Middleware\AuthenticateMerchant;
 use App\Http\Middleware\AuthenticateSmsDevice;
 use App\Http\Middleware\AuthenticateVerifier;
 use App\Http\Middleware\EnforceIpAllowlist;
+use App\Http\Middleware\EnforcePermission;
 use App\Http\Middleware\EnsureAdminIsActive;
 use App\Http\Middleware\EnsureMerchantPortal;
 use App\Http\Middleware\SecurityHeaders;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'merchant.auth' => AuthenticateMerchant::class,
             'ip.allow' => EnforceIpAllowlist::class,
+            'perm' => EnforcePermission::class,
             'merchant.portal' => EnsureMerchantPortal::class,
             'sms.device' => AuthenticateSmsDevice::class,
             'verifier.auth' => AuthenticateVerifier::class,

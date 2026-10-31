@@ -9,7 +9,9 @@
             <p>Authorized QR codes that receive payments. Customers never see which account is used.</p>
         </div>
         <div class="actions">
-            <a href="{{ route('admin.accounts.create') }}" class="btn btn--primary"><x-icon name="plus" :size="16" /> Add account</a>
+            @if (auth()->user()->hasPermission('accounts.create'))
+                <a href="{{ route('admin.accounts.create') }}" class="btn btn--primary"><x-icon name="plus" :size="16" /> Add account</a>
+            @endif
         </div>
     </div>
 
