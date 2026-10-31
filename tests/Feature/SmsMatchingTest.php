@@ -218,16 +218,36 @@ class SmsMatchingTest extends TestCase
         $this->assertStringContainsString('matches the number the customer entered', $sana->fresh()->verification_reason);
     }
 
-    public function test_a_payer_number_that_matches_no_order_is_not_auto_verified(): void
+    public function test_a_unique_amount_order_still_verifies_when_the_payer_number_differs(): void
     {
         $key = $this->key();
-        // The only order of this amount expected a different payer number.
+        // The customer entered one number but paid from another. With only one
+        // open order of this amount, the amount alone still identifies it.
         $payment = $this->pendingPayment('1500.00', claimed: '03001111111');
+
+        $this->receive($key, 'Rs. 1,500.00 received from 03009999999 Someone. TID 5.')
+            ->assertJsonPath('auto_verified', true);
+
+        $payment->refresh();
+        $this->assertSame(PaymentStatus::Paid, $payment->status);
+        $this->assertSame('03009999999', $payment->payer_phone);
+        $this->assertStringContainsString('the customer had entered 03001111111', $payment->verification_reason);
+    }
+
+    public function test_same_amount_orders_with_an_unmatched_number_stay_ambiguous(): void
+    {
+        $key = $this->key();
+        // Two open orders of the same amount; the SMS number matches neither,
+        // so the payment cannot be attributed automatically.
+        $a = $this->pendingPayment('1500.00', ['order_id' => 'A'], claimed: '03001111111');
+        $b = $this->pendingPayment('1500.00', ['order_id' => 'B'], claimed: '03002222222');
 
         $this->receive($key, 'Rs. 1,500.00 received from 03009999999 Someone. TID 5.')
             ->assertJsonPath('auto_verified', false);
 
-        $this->assertSame(PaymentStatus::Pending, $payment->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $a->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $b->fresh()->status);
+        Http::assertNothingSent();
     }
 
     public function test_admin_can_change_auto_verify_settings(): void

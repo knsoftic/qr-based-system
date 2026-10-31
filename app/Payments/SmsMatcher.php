@@ -19,7 +19,8 @@ use Illuminate\Support\Collection;
  * Matching: a payment carries the mobile number the customer entered at
  * checkout ("claimed_phone"). When the SMS payer number matches a payment's
  * claimed number, that payment is identified even if other orders share the
- * same amount. Without a number, it falls back to a unique amount match.
+ * same amount. Without a matching number, it falls back to a unique amount
+ * match, so a single open order of that amount still verifies.
  */
 class SmsMatcher
 {
@@ -118,19 +119,21 @@ class SmsMatcher
      */
     private function resolve(SmsMessage $sms, Collection $candidates): array
     {
-        if ($sms->payer_phone === null) {
-            // No number to match on: fall back to amount only.
-            return ['amount', $candidates];
+        // A payer number that matches an order's checkout number pinpoints that
+        // order even when several share the same amount.
+        if ($sms->payer_phone !== null) {
+            $byPhone = $candidates->where('claimed_phone', $sms->payer_phone)->values();
+            if ($byPhone->isNotEmpty()) {
+                return ['phone', $byPhone];
+            }
         }
 
-        $byPhone = $candidates->where('claimed_phone', $sms->payer_phone)->values();
-        if ($byPhone->isNotEmpty()) {
-            return ['phone', $byPhone];
-        }
-
-        // The payer gave a number that matches no order's claimed number, so
-        // only orders where the customer entered no number can still match.
-        return ['amount', $candidates->whereNull('claimed_phone')->values()];
+        // No number, or a number that matches no order: fall back to the amount.
+        // A single open order of that amount still verifies — the entered number
+        // is only needed to tell same-amount orders apart, and customers often
+        // pay from a different number than they typed. Same-amount collisions
+        // stay ambiguous (not unique) and are left for manual review.
+        return ['amount', $candidates];
     }
 
     /**
@@ -178,8 +181,13 @@ class SmsMatcher
         if ($mode === 'phone') {
             $reason = "SMS from {$sender} reported {$amount} received from {$sms->payer_phone}, which matches the number the customer entered at checkout and the order amount.";
         } else {
-            $reason = "SMS from {$sender} reported {$amount} received, matching the only open order of that amount"
-                .($payment->claimed_phone ? '.' : ' (no payer number was entered at checkout).');
+            $reason = "SMS from {$sender} reported {$amount} received, matching the only open order of that amount.";
+
+            if ($sms->payer_phone && $payment->claimed_phone && $sms->payer_phone !== $payment->claimed_phone) {
+                $reason .= " Paid from {$sms->payer_phone}; the customer had entered {$payment->claimed_phone} at checkout.";
+            } elseif (! $payment->claimed_phone) {
+                $reason = rtrim($reason, '.').' (no payer number was entered at checkout).';
+            }
         }
 
         if ($sms->bank_ref) {
