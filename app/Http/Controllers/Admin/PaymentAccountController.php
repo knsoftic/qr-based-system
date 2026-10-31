@@ -13,6 +13,7 @@ use App\Payments\PaymentService;
 use App\Payments\Providers\ProviderRegistry;
 use App\Payments\Raast\Iban;
 use App\Support\Audit;
+use App\Support\Channels;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class PaymentAccountController extends Controller
     ) {
     }
 
-    public function index(): View
+    public function index(Channels $channels): View
     {
         $todayPaid = fn ($query) => $query
             ->where('status', PaymentStatus::Paid->value)
@@ -42,18 +43,43 @@ class PaymentAccountController extends Controller
                 ->orderBy('id')
                 ->paginate(25),
             'usableCount' => PaymentAccount::query()->usable()->get()->filter->canAccept()->count(),
+            'channels' => $channels->overview(),
         ]);
     }
 
-    public function create(): View
+    public function create(Channels $channels): View
     {
-        return view('admin.accounts.create', ['providers' => $this->providers->options()]);
+        return view('admin.accounts.create', [
+            'providers' => $this->providers->options(),
+            'channels' => $channels->names(),
+        ]);
+    }
+
+    /**
+     * Put a whole payment method (channel) into / out of maintenance.
+     */
+    public function channelMaintenance(Request $request, Channels $channels): RedirectResponse
+    {
+        $data = $request->validate([
+            'channel' => ['required', 'string', 'max:50'],
+            'on' => ['required', 'boolean'],
+        ]);
+
+        $on = $request->boolean('on');
+        $channels->setMaintenance($data['channel'], $on);
+
+        Audit::log($on ? 'channel.maintenance_on' : 'channel.maintenance_off', null, [], ['channel' => $data['channel']]);
+
+        return back()->with('success', $on
+            ? "Channel \"{$data['channel']}\" put in maintenance; its accounts will not receive new payments."
+            : "Channel \"{$data['channel']}\" resumed.");
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
+            'channel' => ['nullable', 'string', 'max:50'],
             'priority' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'daily_limit' => ['nullable', 'numeric', 'min:0'],
             'monthly_limit' => ['nullable', 'numeric', 'min:0'],
@@ -62,6 +88,7 @@ class PaymentAccountController extends Controller
 
         $account = new PaymentAccount([
             'name' => $data['name'],
+            'channel' => filled($data['channel'] ?? null) ? trim($data['channel']) : null,
             'provider' => $data['provider'] ?? ProviderRegistry::AUTO,
             'priority' => $data['priority'] ?? 100,
             'daily_limit' => $data['daily_limit'] ?? null,
@@ -197,20 +224,26 @@ class PaymentAccountController extends Controller
             ->with('success', 'Saved. The QR data was rebuilt, its checksum recalculated and verified. New payments use it; existing QR codes are unchanged.');
     }
 
-    public function edit(PaymentAccount $account): View
+    public function edit(PaymentAccount $account, Channels $channels): View
     {
-        return view('admin.accounts.edit', ['account' => $account]);
+        return view('admin.accounts.edit', ['account' => $account, 'channels' => $channels->names()]);
     }
 
     public function update(Request $request, PaymentAccount $account): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
+            'channel' => ['nullable', 'string', 'max:50'],
             'priority' => ['required', 'integer', 'min:1', 'max:1000'],
             'daily_limit' => ['nullable', 'numeric', 'min:0'],
             'monthly_limit' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $account->fill($data + ['daily_limit' => $data['daily_limit'] ?? null, 'monthly_limit' => $data['monthly_limit'] ?? null])->save();
+        $account->fill([
+            ...$data,
+            'channel' => filled($data['channel'] ?? null) ? trim($data['channel']) : null,
+            'daily_limit' => $data['daily_limit'] ?? null,
+            'monthly_limit' => $data['monthly_limit'] ?? null,
+        ])->save();
 
         Audit::log('account.updated', $account, ...Audit::changes($account));
 

@@ -15,6 +15,7 @@ class PaymentAccount extends Model
 
     protected $fillable = [
         'name',
+        'channel',
         'provider',
         'priority',
         'daily_limit',
@@ -107,6 +108,10 @@ class PaymentAccount extends Model
             return false;
         }
 
+        if ($this->channel && app(\App\Support\Channels::class)->inMaintenance($this->channel)) {
+            return false;
+        }
+
         if ($this->daily_limit !== null && $this->usedToday() + $amount > (float) $this->daily_limit) {
             return false;
         }
@@ -131,6 +136,9 @@ class PaymentAccount extends Model
         }
         if ($this->maintenance) {
             return 'In maintenance (manual)';
+        }
+        if ($this->channel && app(\App\Support\Channels::class)->inMaintenance($this->channel)) {
+            return 'Channel "'.$this->channel.'" in maintenance';
         }
         if ($this->daily_limit !== null && $this->usedToday() >= (float) $this->daily_limit) {
             return 'Daily limit reached';

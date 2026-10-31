@@ -61,6 +61,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
 
         Route::get('accounts', [PaymentAccountController::class, 'index'])->name('accounts.index');
+        Route::post('accounts/channels/maintenance', [PaymentAccountController::class, 'channelMaintenance'])->name('accounts.channels.maintenance');
         Route::get('accounts/create', [PaymentAccountController::class, 'create'])->name('accounts.create');
         Route::post('accounts', [PaymentAccountController::class, 'store'])->name('accounts.store');
         Route::get('accounts/{account}', [PaymentAccountController::class, 'show'])->name('accounts.show');

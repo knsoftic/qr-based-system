@@ -21,6 +21,16 @@
                         <div class="hint">Internal label, never shown to customers.</div>
                     </div>
 
+                    <div class="form-row">
+                        <label for="channel">Channel (payment method / company)</label>
+                        <input id="channel" type="text" name="channel" value="{{ old('channel') }}" maxlength="50" list="channel-list" placeholder="e.g. easypaisa, JazzCash, Raast, Bank">
+                        <div class="hint">Group accounts by method so you can put a whole method into maintenance at once. Optional.</div>
+                        <datalist id="channel-list">
+                            @foreach ($channels as $ch)<option value="{{ $ch }}">@endforeach
+                            <option value="easypaisa"><option value="JazzCash"><option value="Raast"><option value="Bank">
+                        </datalist>
+                    </div>
+
                     @include('admin.accounts._qr-source', ['providers' => $providers, 'selectedProvider' => 'auto'])
 
                     <div class="grid grid-2">

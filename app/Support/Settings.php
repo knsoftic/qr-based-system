@@ -37,6 +37,11 @@ class Settings
 
             'api.rate_limit' => (int) config('gateway.api_rate_limit'),
 
+            // Payment-method channels (easypaisa, JazzCash, ...) currently in
+            // maintenance. Accounts of a channel in this list stop receiving
+            // new payments while other channels keep working. See App\Support\Channels.
+            'channels.maintenance' => [],
+
             // sha256 of the verifier key; the plain key is shown once on generation.
             'verification.key_hash' => null,
 

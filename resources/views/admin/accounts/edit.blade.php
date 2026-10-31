@@ -20,6 +20,15 @@
                     <input id="name" type="text" name="name" value="{{ old('name', $account->name) }}" required maxlength="100">
                 </div>
                 <div class="form-row">
+                    <label for="channel">Channel (payment method / company)</label>
+                    <input id="channel" type="text" name="channel" value="{{ old('channel', $account->channel) }}" maxlength="50" list="channel-list" placeholder="e.g. easypaisa, JazzCash, Raast, Bank">
+                    <div class="hint">Group accounts by method so a whole method can be put into maintenance at once. Optional.</div>
+                    <datalist id="channel-list">
+                        @foreach ($channels as $ch)<option value="{{ $ch }}">@endforeach
+                        <option value="easypaisa"><option value="JazzCash"><option value="Raast"><option value="Bank">
+                    </datalist>
+                </div>
+                <div class="form-row">
                     <label for="priority">Priority</label>
                     <input id="priority" type="number" name="priority" value="{{ old('priority', $account->priority) }}" min="1" max="1000" required>
                     <div class="hint">Lower is preferred when routing strategy is “Priority”.</div>

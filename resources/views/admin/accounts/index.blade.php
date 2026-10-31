@@ -17,12 +17,51 @@
         <div class="alert alert--warning">No account can accept payments right now (all disabled, in maintenance or over their limit). New payment requests will be rejected until one is available.</div>
     @endif
 
+    @if ($channels->isNotEmpty())
+        <div class="card">
+            <div class="card-head"><h2>Payment channels</h2></div>
+            <div class="card-body">
+                <p class="hint mt-0">Put a whole payment method (channel) into maintenance — every account of that channel stops receiving new payments, while other channels and the website keep working.</p>
+                <table class="codes-table">
+                    <thead><tr><th>Channel</th><th class="num">Accounts</th><th>State</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach ($channels as $ch)
+                        <tr>
+                            <td><strong>{{ $ch['name'] }}</strong></td>
+                            <td class="num">{{ $ch['active'] }} active / {{ $ch['total'] }}</td>
+                            <td>
+                                @if ($ch['maintenance'])
+                                    <span class="badge badge--warning">In maintenance</span>
+                                @else
+                                    <span class="badge badge--active">Live</span>
+                                @endif
+                            </td>
+                            <td class="text-right">
+                                <form method="POST" action="{{ route('admin.accounts.channels.maintenance') }}" class="inline-form"
+                                      onsubmit="return confirm('{{ $ch['maintenance'] ? 'Resume' : 'Put in maintenance' }} the “{{ $ch['name'] }}” channel?')">
+                                    @csrf
+                                    <input type="hidden" name="channel" value="{{ $ch['name'] }}">
+                                    <input type="hidden" name="on" value="{{ $ch['maintenance'] ? 0 : 1 }}">
+                                    <button type="submit" class="btn btn--sm {{ $ch['maintenance'] ? 'btn--primary' : 'btn--danger' }}">
+                                        {{ $ch['maintenance'] ? 'Resume' : 'Maintenance' }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
     <div class="card">
         <div class="table-wrap">
             <table>
                 <thead>
                 <tr>
                     <th>Account</th>
+                    <th>Channel</th>
                     <th>Provider</th>
                     <th class="num">Today / limit</th>
                     <th class="num">This month / limit</th>
@@ -41,6 +80,7 @@
                                 <div class="muted" style="font-size: .8rem">{{ $account->payload_summary['label'] ?? $account->payload_summary['merchant_name'] ?? '' }}</div>
                             @endif
                         </td>
+                        <td>{{ $account->channel ?: '—' }}</td>
                         <td>
                             {{ $account->providerName() }}
                             <div><span class="badge badge--{{ $account->decode_status->value }}">{{ $account->decode_status->label() }}</span></div>
@@ -67,7 +107,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="empty">
+                        <td colspan="8" class="empty">
                             No payment accounts yet. <a href="{{ route('admin.accounts.create') }}">Add your first authorized QR</a>.
                         </td>
                     </tr>
