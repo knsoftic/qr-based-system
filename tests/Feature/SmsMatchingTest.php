@@ -218,6 +218,48 @@ class SmsMatchingTest extends TestCase
         $this->assertStringContainsString('matches the number the customer entered', $sana->fresh()->verification_reason);
     }
 
+    public function test_a_masked_payer_number_is_matched_by_its_visible_digits(): void
+    {
+        $key = $this->key();
+        $payment = $this->pendingPayment('1500.00', claimed: '03001234567');
+
+        // The provider masked the payer number, showing only some digits.
+        $this->receive($key, 'Rs. 1,500.00 received from 0300***4567. TID 9.')
+            ->assertJsonPath('auto_verified', true);
+
+        $this->assertSame(PaymentStatus::Paid, $payment->fresh()->status);
+        // The confirmed payer is the number the customer entered at checkout.
+        $this->assertSame('03001234567', $payment->fresh()->payer_phone);
+    }
+
+    public function test_a_masked_number_picks_the_matching_order_among_same_amount(): void
+    {
+        $key = $this->key();
+        $ali = $this->pendingPayment('1500.00', ['order_id' => 'ALI'], claimed: '03001111111');
+        $sana = $this->pendingPayment('1500.00', ['order_id' => 'SANA'], claimed: '03002222222');
+
+        // Only part of the number is shown, but it identifies Sana's.
+        $this->receive($key, 'Rs. 1,500.00 received from 0300***2222. TID 9.')
+            ->assertJsonPath('auto_verified', true);
+
+        $this->assertSame(PaymentStatus::Paid, $sana->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $ali->fresh()->status);
+    }
+
+    public function test_a_masked_number_matching_no_order_stays_ambiguous(): void
+    {
+        $key = $this->key();
+        $a = $this->pendingPayment('1500.00', ['order_id' => 'A'], claimed: '03001111111');
+        $b = $this->pendingPayment('1500.00', ['order_id' => 'B'], claimed: '03002222222');
+
+        $this->receive($key, 'Rs. 1,500.00 received from 0300***9999. TID 9.')
+            ->assertJsonPath('auto_verified', false);
+
+        $this->assertSame(PaymentStatus::Pending, $a->fresh()->status);
+        $this->assertSame(PaymentStatus::Pending, $b->fresh()->status);
+        Http::assertNothingSent();
+    }
+
     public function test_several_orders_from_the_same_number_verify_the_latest(): void
     {
         $key = $this->key();

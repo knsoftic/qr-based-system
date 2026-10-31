@@ -84,12 +84,16 @@ class SmsMatcher
         $reference = $sms->bank_ref ?: ('SMS#'.$sms->id);
         $reason = $this->reason($sms, $payment, $score, $mode, $amongMany);
 
+        // The SMS may only show a masked number; when it matched the order by
+        // number, the confirmed payer is the checkout number.
+        $payerPhone = $sms->payer_phone ?: ($mode === 'phone' ? $payment->claimed_phone : null);
+
         $verified = $this->payments->transition($payment, PaymentStatus::Paid, 'sms', [
             'reference' => $reference,
             'reason' => $reason,
             'sms_id' => $sms->id,
             'sender' => $sms->sender,
-            'payer_phone' => $sms->payer_phone,
+            'payer_phone' => $payerPhone,
             'matched_by' => $mode,
             'score' => $score,
             'auto' => true,
@@ -100,7 +104,7 @@ class SmsMatcher
         }
 
         $payment->forceFill([
-            'payer_phone' => $sms->payer_phone,
+            'payer_phone' => $payerPhone,
             'sms_message_id' => $sms->id,
             'verification_reason' => $reason,
         ])->save();
@@ -113,7 +117,7 @@ class SmsMatcher
 
         Audit::log('payment.sms_verified', $payment, [], [
             'sms_id' => $sms->id, 'score' => $score, 'matched_by' => $mode,
-            'reference' => $reference, 'payer_phone' => $sms->payer_phone, 'sender' => $sms->sender,
+            'reference' => $reference, 'payer_phone' => $payerPhone, 'sender' => $sms->sender,
         ], byAdmin: false);
 
         return true;
@@ -138,20 +142,22 @@ class SmsMatcher
      */
     private function resolve(SmsMessage $sms, Collection $candidates): array
     {
-        // A payer number that matches an order's checkout number pinpoints that
-        // order even when several share the same amount.
-        if ($sms->payer_phone !== null) {
-            $byPhone = $candidates->where('claimed_phone', $sms->payer_phone)->values();
-            if ($byPhone->isNotEmpty()) {
-                return ['phone', $byPhone];
-            }
+        // Match the number shown in the SMS — full OR masked (only the last few,
+        // middle or leading digits visible) — against each order's checkout
+        // number. A match pinpoints the order even among same-amount orders.
+        $byPhone = $candidates
+            ->filter(fn (Payment $p) => $p->claimed_phone && PhoneMatch::matches($p->claimed_phone, $sms->body))
+            ->values();
+
+        if ($byPhone->isNotEmpty()) {
+            return ['phone', $byPhone];
         }
 
-        // No number, or a number that matches no order: fall back to the amount.
-        // A single open order of that amount still verifies — the entered number
-        // is only needed to tell same-amount orders apart, and customers often
-        // pay from a different number than they typed. Same-amount collisions
-        // stay ambiguous (not unique) and are left for manual review.
+        // No number match: fall back to the amount. A single open order of that
+        // amount still verifies — the entered number is only needed to tell
+        // same-amount orders apart, and customers often pay from a different
+        // number than they typed. Same-amount collisions stay ambiguous (not
+        // unique) and are left for manual review.
         return ['amount', $candidates];
     }
 
