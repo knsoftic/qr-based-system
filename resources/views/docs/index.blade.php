@@ -30,7 +30,7 @@
     <h2 style="border-top: 0; margin-top: .5rem">How it works</h2>
     <ol>
         <li>Your server creates a payment: <code>POST /payments</code> with the amount and your order ID.</li>
-        <li>You receive <code>payment_id</code>, <code>transaction_id</code> and <code>checkout_url</code>. Redirect the customer to the checkout URL.</li>
+        <li>You receive <code>payment_id</code>, <code>transaction_id</code>, <code>checkout_url</code> and a short <code>short_url</code>. Redirect the customer to either — <code>short_url</code> is a short, anonymous link that does not reveal the payment id.</li>
         <li>The customer scans a dynamic QR with the exact amount. The QR expires after <strong>{{ $expiryMinutes }} minutes</strong>.</li>
         <li>When the payment is verified (or expires) we POST a signed callback to your server and the customer is sent back to your <code>return_url</code>.</li>
     </ol>
@@ -90,6 +90,7 @@
     "net_amount": "1500.00",
     "status": "pending",
     "checkout_url": "{{ url('/checkout') }}/pay_01jbd3m4w2k8x9t7q5v6n3r2p1",
+    "short_url": "{{ url('/s') }}/k2x9qm4w7a",
     "expires_at": "2026-10-28T15:35:45+00:00",
     "paid_at": null,
     "created_at": "2026-10-28T15:30:45+00:00"

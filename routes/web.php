@@ -27,9 +27,14 @@ Route::redirect('/', '/merchant/login');
 Route::get('/docs', DocsController::class)->name('docs');
 
 Route::middleware('throttle:checkout')->group(function () {
-    Route::get('/checkout/{paymentId}', [CheckoutController::class, 'show'])->name('checkout.show');
-    Route::get('/checkout/{paymentId}/status', [CheckoutController::class, 'status'])->name('checkout.status');
-    Route::post('/checkout/{paymentId}/phone', [CheckoutController::class, 'savePhone'])->name('checkout.phone');
+    Route::get('/checkout/{key}', [CheckoutController::class, 'show'])->name('checkout.show');
+    Route::get('/checkout/{key}/status', [CheckoutController::class, 'status'])->name('checkout.status');
+    Route::post('/checkout/{key}/phone', [CheckoutController::class, 'savePhone'])->name('checkout.phone');
+
+    // Short, anonymous checkout link — same controller, resolved by slug.
+    Route::get('/s/{key}', [CheckoutController::class, 'show'])->name('checkout.short');
+    Route::get('/s/{key}/status', [CheckoutController::class, 'status'])->name('checkout.short.status');
+    Route::post('/s/{key}/phone', [CheckoutController::class, 'savePhone'])->name('checkout.short.phone');
 });
 
 Route::prefix('merchant')->name('merchant.')->group(function () {

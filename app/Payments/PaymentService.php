@@ -57,6 +57,7 @@ class PaymentService
 
                 $payment = Payment::query()->create([
                     'payment_id' => 'pay_'.Str::lower((string) Str::ulid()),
+                    'slug' => $this->newSlug(),
                     'transaction_id' => $transactionId,
                     'merchant_id' => $merchant->id,
                     'payment_account_id' => $account->id,
@@ -207,6 +208,16 @@ class PaymentService
         } while (Payment::query()->where('transaction_id', $id)->exists());
 
         return $id;
+    }
+
+    /** Short, unguessable code for the anonymous checkout link. */
+    private function newSlug(): string
+    {
+        do {
+            $slug = Str::lower(Str::random(10));
+        } while (Payment::query()->where('slug', $slug)->exists());
+
+        return $slug;
     }
 
     private function canonical(array $data): array

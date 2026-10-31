@@ -25,6 +25,7 @@ class CheckoutController extends Controller
         'tagline', 'step1_title', 'step1_desc', 'step1_button', 'step2_hint', 'steps',
         'paid_title', 'paid_text', 'expired_title', 'expired_text', 'failed_title', 'failed_text',
         'footer', 'invalid_code_msg', 'telegram', 'telegram_label', 'button_label', 'button_url',
+        'short_base_url',
     ];
 
     private const FONT_EXT = ['ttf', 'otf', 'woff', 'woff2'];
@@ -66,6 +67,7 @@ class CheckoutController extends Controller
             'telegram_label' => ['nullable', 'string', 'max:100'],
             'button_label' => ['nullable', 'string', 'max:100'],
             'button_url' => ['nullable', 'url:http,https', 'max:300'],
+            'short_base_url' => ['nullable', 'url:http,https', 'max:200'],
             'codes_json' => ['nullable', 'string', 'max:20000'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
             'font_file' => ['nullable', 'file', 'max:20480', function (string $attr, mixed $value, \Closure $fail) {

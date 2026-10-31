@@ -11,6 +11,7 @@ class Payment extends Model
 {
     protected $fillable = [
         'payment_id',
+        'slug',
         'transaction_id',
         'merchant_id',
         'payment_account_id',
@@ -112,6 +113,22 @@ class Payment extends Model
     }
 
     /**
+     * Short, anonymous checkout link (/s/{slug}) on the configured short-link
+     * base URL (a neutral domain if set, else this app). Null if no slug yet.
+     */
+    public function shortUrl(): ?string
+    {
+        if (! $this->slug) {
+            return null;
+        }
+
+        $base = (string) app(\App\Support\Settings::class)->get('checkout.short_base_url');
+        $base = $base !== '' ? rtrim($base, '/') : rtrim(url('/'), '/');
+
+        return $base.'/s/'.$this->slug;
+    }
+
+    /**
      * Public representation shared by the API response and merchant callbacks.
      */
     public function toApiArray(): array
@@ -126,6 +143,7 @@ class Payment extends Model
             'net_amount' => $this->net_amount,
             'status' => $this->status->value,
             'checkout_url' => $this->checkoutUrl(),
+            'short_url' => $this->shortUrl(),
             'expires_at' => $this->expires_at->toIso8601String(),
             'paid_at' => $this->paid_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),

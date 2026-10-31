@@ -40,7 +40,7 @@
 </head>
 <body class="checkout-body">
 <main class="checkout" id="checkout"
-      data-status-url="{{ route('checkout.status', $payment->payment_id) }}"
+      data-status-url="{{ $statusUrl }}"
       data-status="{{ $payment->status->value }}"
       data-remaining="{{ $payment->remainingSeconds() }}"
       data-total="{{ max(1, $payment->expires_at->diffInSeconds($payment->created_at, true)) }}"
@@ -76,7 +76,7 @@
                     <strong>{{ $t('step1_title', $L('پہلا مرحلہ — موبائل نمبر درج کریں', 'Step 1 — Enter the mobile number you will pay from')) }}</strong>
                     <p>{{ $t('step1_desc') }}</p>
                 </div>
-                <form method="POST" action="{{ route('checkout.phone', $payment->payment_id) }}" class="phone-form">
+                <form method="POST" action="{{ $phoneAction }}" class="phone-form">
                     @csrf
                     <input type="tel" name="claimed_phone" dir="ltr" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ old('claimed_phone') }}" required autofocus>
                     <button type="submit" class="btn btn--primary">{{ $t('step1_button', $L('QR کوڈ دکھائیں', 'Show QR code')) }} →</button>
@@ -87,7 +87,7 @@
                     <span><x-icon name="check" :size="16" /> {{ $L('ادائیگی اس نمبر سے', 'Pay from') }} <strong class="mono" dir="ltr">{{ $payment->claimed_phone }}</strong></span>
                     <a href="#" onclick="document.getElementById('phone-form').hidden=false;this.parentElement.hidden=true;return false;">{{ $L('تبدیل کریں', 'Change') }}</a>
                 </div>
-                <form method="POST" action="{{ route('checkout.phone', $payment->payment_id) }}" id="phone-form" class="phone-form" hidden>
+                <form method="POST" action="{{ $phoneAction }}" id="phone-form" class="phone-form" hidden>
                     @csrf
                     <input type="tel" name="claimed_phone" dir="ltr" inputmode="numeric" maxlength="15" placeholder="03XXXXXXXXX" value="{{ $payment->claimed_phone }}" required>
                     <button type="submit" class="btn btn--primary">{{ $L('محفوظ کریں', 'Save') }}</button>

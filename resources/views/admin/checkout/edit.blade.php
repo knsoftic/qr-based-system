@@ -164,6 +164,18 @@
         </div>
 
         <div class="card">
+            <div class="card-head"><h2>Short / anonymous checkout link</h2></div>
+            <div class="card-body">
+                <p class="hint mt-0">Every payment gets a short link like <span class="mono">/s/xxxxxxxxxx</span> that opens the checkout directly (the long payment id is never shown). It is returned to merchants as <span class="mono">short_url</span>.</p>
+                <div class="form-row">
+                    <label for="short_base_url">Short-link base URL (optional)</label>
+                    <input id="short_base_url" type="url" name="short_base_url" value="{{ $c('short_base_url') }}" maxlength="200" placeholder="https://pay.example.com">
+                    <div class="hint">Leave empty to use this site's address. To hide the gateway, point a neutral domain at this server and enter it here — short links will use it (e.g. <span class="mono">https://pay.example.com/s/xxxxxxxxxx</span>).</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
             <div class="card-head"><h2>Allowed mobile codes</h2></div>
             <div class="card-body">
                 <p class="hint mt-0">The customer's pay-from number must start with an allowed code. Untick a company to block it; leave the whole list empty to allow every number. Codes are 4 digits (e.g. <span class="mono">0300</span>), comma separated.</p>

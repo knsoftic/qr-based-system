@@ -72,6 +72,10 @@ class Settings
             'checkout.footer' => 'محفوظ Raast QR ادائیگی',
             'checkout.invalid_code_msg' => 'اس موبائل نمبر کا کوڈ قبول نہیں کیا جاتا۔ براہِ کرم کسی اور کمپنی کا نمبر استعمال کریں۔',
 
+            // Short/anonymous checkout link base. Empty = this app's URL; set a
+            // neutral domain (pointed at this server) to hide the gateway.
+            'checkout.short_base_url' => null,
+
             'checkout.telegram' => null,               // @username or t.me link
             'checkout.telegram_label' => 'ٹیلیگرام پر رابطہ کریں',
             'checkout.button_label' => null,
