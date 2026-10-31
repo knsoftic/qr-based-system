@@ -56,7 +56,7 @@
                         <input id="logo" type="file" name="logo" accept="image/png,image/jpeg,image/webp">
                     </div>
                     <div class="form-row">
-                        <label for="font_file">Custom Urdu font (.ttf/.otf/.woff/.woff2, ≤5 MB)</label>
+                        <label for="font_file">Custom Urdu font (.ttf/.otf/.woff/.woff2, ≤20 MB)</label>
                         @if ($theme->customFontUrl())
                             <p class="hint mt-0">A custom font is uploaded. <label class="checkbox"><input type="checkbox" name="remove_font" value="1"> Remove it (use Noto Nastaliq Urdu)</label></p>
                         @else

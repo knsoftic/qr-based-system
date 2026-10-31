@@ -22,9 +22,17 @@
     <style>
         :root { --primary: {{ $theme->primaryColor() }}; --primary-strong: {{ $theme->primaryColor() }}; --brand-gradient: {{ $theme->gradient() }}; }
         @if ($theme->customFontUrl())
-        @font-face { font-family: 'CheckoutUrdu'; src: url('{{ $theme->customFontUrl() }}'); font-display: swap; }
+        @font-face { font-family: 'CheckoutUrdu'; src: url('{!! $theme->customFontUrl() !!}'); font-display: swap; }
         @endif
-        .checkout { font-family: {{ $theme->fontFamily() }};{{ $rtl && $theme->usesNastaliq() ? ' line-height: 2.1;' : '' }} }
+        .checkout { font-family: {!! $theme->fontFamily() !!};{{ $rtl && $theme->usesNastaliq() ? ' line-height: 2.1;' : '' }} }
+        @if ($theme->usesNastaliq())
+        .checkout { font-size: 1.05rem; }
+        .checkout .phone-prompt strong { font-size: 1.18rem; line-height: 2; display: block; margin-bottom: .35rem; }
+        .checkout .phone-prompt p, .checkout-scan-hint, .checkout-steps, .checkout-tagline { font-size: 1rem; }
+        .checkout-stepnav { font-size: .9rem; }
+        .checkout-details dt { font-size: .98rem; }
+        .checkout-steps li { margin-bottom: .4rem; }
+        @endif
         .checkout .mono, .checkout-amount, .checkout-amount .currency, #timer-text, .checkout-details dd,
         .phone-form input, .badge, .checkout-foot { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; line-height: 1.4; }
         [dir="ltr"] { direction: ltr; unicode-bidi: isolate; }

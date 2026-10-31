@@ -68,7 +68,7 @@ class CheckoutController extends Controller
             'button_url' => ['nullable', 'url:http,https', 'max:300'],
             'codes_json' => ['nullable', 'string', 'max:20000'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
-            'font_file' => ['nullable', 'file', 'max:5120', function (string $attr, mixed $value, \Closure $fail) {
+            'font_file' => ['nullable', 'file', 'max:20480', function (string $attr, mixed $value, \Closure $fail) {
                 if ($value instanceof UploadedFile && ! in_array(strtolower($value->getClientOriginalExtension()), self::FONT_EXT, true)) {
                     $fail('The font must be a .ttf, .otf, .woff or .woff2 file.');
                 }
