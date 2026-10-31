@@ -71,7 +71,7 @@
                                 <details class="payout-actions">
                                     <summary class="btn btn--sm btn--primary">Approve</summary>
                                     <form method="POST" action="{{ route('admin.requests.approve', $req) }}" class="payout-pop"
-                                          onsubmit="return confirm('Create the merchant account for “{{ $req->name }}” with login “{{ $req->username }}”?')">
+                                          onsubmit="return confirm('Create this merchant account and portal login?')">
                                         @csrf
                                         <input type="text" name="admin_note" placeholder="Note (optional)" maxlength="255">
                                         <button type="submit" class="btn btn--sm btn--primary">Create merchant</button>
