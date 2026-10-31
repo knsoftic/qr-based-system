@@ -705,6 +705,25 @@ pre.json {
 .checkout-foot { display: flex; justify-content: center; align-items: center; gap: .4rem; padding: .9rem 1.5rem; border-top: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: .78rem; }
 .checkout-foot .icon { color: var(--success); }
 
+/* Checkout branding (logo, tagline, Telegram / custom button) */
+.checkout-logo { max-height: 46px; max-width: 70%; margin: 0 auto .6rem; display: block; object-fit: contain; }
+.checkout-tagline { color: rgba(255, 255, 255, .9); font-size: .95rem; margin-top: .55rem; }
+.checkout-actions { display: flex; gap: .6rem; padding: 0 1.5rem 1rem; }
+.checkout-action { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .7rem 1rem; border-radius: var(--radius-sm); font-weight: 600; font-size: .92rem; text-decoration: none; border: 1px solid var(--border); }
+.checkout-action--tg { background: #229ed9; color: #fff; border-color: #229ed9; }
+.checkout-action--cta { background: var(--primary); color: #fff; border-color: var(--primary); }
+.checkout-action .icon { color: currentColor; }
+
+/* Admin: checkout branding editor */
+.brand-preview { padding: .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); display: inline-block; margin-bottom: .5rem; }
+.brand-preview img { max-height: 48px; max-width: 220px; display: block; }
+.codes-table { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; }
+.codes-table th { text-align: left; font-size: .8rem; color: var(--muted); padding: .4rem .5rem; font-weight: 600; }
+.codes-table td { padding: .3rem .5rem; border-top: 1px solid var(--border); vertical-align: middle; }
+.codes-table .codes-allow { text-align: center; width: 70px; }
+.codes-table input[type="text"] { width: 100%; }
+.form-actions { margin-top: 1.2rem; }
+
 /* ---------- Docs ---------- */
 
 .docs-top {

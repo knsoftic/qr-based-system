@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\CheckoutController as AdminCheckoutController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\MerchantController;
@@ -94,6 +95,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->name('settings.verifier-key');
 
         Route::get('reports', ReportController::class)->name('reports');
+
+        Route::get('checkout', [AdminCheckoutController::class, 'edit'])->name('checkout.edit');
+        Route::post('checkout', [AdminCheckoutController::class, 'update'])->name('checkout.update');
 
         Route::get('payouts', [PayoutController::class, 'index'])->name('payouts.index');
         Route::post('payouts/{payout}/paid', [PayoutController::class, 'markPaid'])->name('payouts.paid');

@@ -27,3 +27,7 @@ yarn-error.log
 /.user.ini
 /.htaccess
 /public/.user.ini
+
+# Admin-uploaded checkout branding (logo / custom font)
+/public/branding/*
+!/public/branding/.gitkeep

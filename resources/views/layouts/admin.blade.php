@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Admin') · {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=8">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=9">
 </head>
 <body>
 @php
@@ -18,6 +18,7 @@
         ['admin.accounts.index', 'Payment Accounts', 'qr', request()->routeIs('admin.accounts.*')],
         ['admin.merchants.index', 'Merchants & API Keys', 'store', request()->routeIs('admin.merchants.*')],
         ['admin.payouts.index', 'Payouts', 'payout', request()->routeIs('admin.payouts.*')],
+        ['admin.checkout.edit', 'Checkout Page', 'qr', request()->routeIs('admin.checkout.*')],
         ['admin.reports', 'Reports', 'chart', request()->routeIs('admin.reports')],
     ];
     $settings = [

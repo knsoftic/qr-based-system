@@ -12,6 +12,16 @@ class CheckoutTest extends TestCase
 {
     use GatewayHelpers, RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These tests assert the English copy; the checkout defaults to Urdu.
+        app(\App\Support\Settings::class)->set([
+            'checkout.language' => 'en',
+            'checkout.expired_title' => 'QR code expired',
+        ]);
+    }
+
     private function newPayment(array $body = []): Payment
     {
         [$merchant, $secret] = $this->makeMerchant(['name' => 'Demo Shop']);

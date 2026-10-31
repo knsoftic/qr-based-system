@@ -11,6 +11,18 @@ class CheckoutPhoneTest extends TestCase
 {
     use GatewayHelpers, RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These tests assert the English copy; the checkout defaults to Urdu.
+        app(\App\Support\Settings::class)->set([
+            'checkout.language' => 'en',
+            'checkout.step1_title' => 'Enter the mobile number you will pay from',
+            'checkout.step1_desc' => 'Type the mobile number of the account you will send this payment from.',
+            'checkout.step2_hint' => 'Scan this QR and pay',
+        ]);
+    }
+
     private function payment(): Payment
     {
         [$merchant, $secret] = $this->makeMerchant();
