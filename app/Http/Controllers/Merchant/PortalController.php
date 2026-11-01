@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\Merchant;
 
-use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
+use App\Models\Payout;
 use App\Payments\Exceptions\GatewayException;
 use App\Payments\PayInTester;
 use App\Payments\PaymentService;
 use App\Payments\PayoutService;
 use App\Support\Audit;
+use App\Support\Settings;
+use App\Telegram\LinkService;
+use App\Telegram\TelegramClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -70,10 +73,10 @@ class PortalController extends Controller
             'merchant' => $merchant,
             'balance' => $merchant->balance(),
             'payouts' => $merchant->payouts()->latest('id')->paginate(15),
-            'methods' => \App\Models\Payout::METHODS,
-            'enabled' => (bool) app(\App\Support\Settings::class)->get('payout.enabled'),
-            'min' => (float) app(\App\Support\Settings::class)->get('payout.min_amount'),
-            'max' => (float) app(\App\Support\Settings::class)->get('payout.max_amount'),
+            'methods' => Payout::METHODS,
+            'enabled' => (bool) app(Settings::class)->get('payout.enabled'),
+            'min' => (float) app(Settings::class)->get('payout.min_amount'),
+            'max' => (float) app(Settings::class)->get('payout.max_amount'),
         ]);
     }
 
@@ -82,7 +85,7 @@ class PortalController extends Controller
         $merchant = $this->merchant($request);
 
         $data = $request->validate([
-            'method' => ['required', Rule::in(array_keys(\App\Models\Payout::METHODS))],
+            'method' => ['required', Rule::in(array_keys(Payout::METHODS))],
             'account_number' => ['required', 'string', 'regex:/^0?3\d{2}[\s-]?\d{7}$/'],
             'account_name' => ['nullable', 'string', 'max:100'],
             'amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
@@ -153,6 +156,36 @@ class PortalController extends Controller
         Audit::log('merchant.portal_payin_test', $merchant, [], ['amount' => $data['amount'], 'status' => $result['status'], 'payment_id' => $result['payment_id']], byAdmin: false);
 
         return redirect()->to(route('merchant.test').'#payin-test')->with('payin_test', $result)->withInput(['amount' => $data['amount']]);
+    }
+
+    /**
+     * Start the "Connect Telegram" handshake: create a single-use token and
+     * show the deep link the merchant opens in Telegram.
+     */
+    public function connectTelegram(Request $request, LinkService $links, TelegramClient $client): RedirectResponse
+    {
+        $merchant = $this->merchant($request);
+
+        if (! $client->botUsername()) {
+            return redirect()->to(route('merchant.dashboard').'#telegram')
+                ->with('error', 'Telegram is not set up yet. Please ask the gateway admin.');
+        }
+
+        $token = $links->createToken($merchant);
+        Audit::log('merchant.telegram_connect_started', $merchant, byAdmin: false);
+
+        return redirect()->to(route('merchant.dashboard').'#telegram')
+            ->with('telegram_link', $links->deepLink($token));
+    }
+
+    public function disconnectTelegram(Request $request, LinkService $links): RedirectResponse
+    {
+        $merchant = $this->merchant($request);
+        $links->unbind($merchant);
+        Audit::log('merchant.telegram_disconnected', $merchant, byAdmin: false);
+
+        return redirect()->to(route('merchant.dashboard').'#telegram')
+            ->with('success', 'Telegram disconnected. You will no longer receive notifications there.');
     }
 
     public function verifyForm(Request $request): View

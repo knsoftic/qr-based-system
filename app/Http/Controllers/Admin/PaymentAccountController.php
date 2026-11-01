@@ -14,6 +14,7 @@ use App\Payments\Providers\ProviderRegistry;
 use App\Payments\Raast\Iban;
 use App\Support\Audit;
 use App\Support\Channels;
+use App\Telegram\TelegramNotifier;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,8 +26,7 @@ class PaymentAccountController extends Controller
     public function __construct(
         private readonly AccountQrProcessor $processor,
         private readonly ProviderRegistry $providers,
-    ) {
-    }
+    ) {}
 
     public function index(Channels $channels): View
     {
@@ -66,9 +66,18 @@ class PaymentAccountController extends Controller
         ]);
 
         $on = $request->boolean('on');
+        $was = $channels->inMaintenance($data['channel']);
         $channels->setMaintenance($data['channel'], $on);
 
         Audit::log($on ? 'channel.maintenance_on' : 'channel.maintenance_off', null, [], ['channel' => $data['channel']]);
+
+        if ($was !== $on) {
+            try {
+                app(TelegramNotifier::class)->channelMaintenance($data['channel'], $on);
+            } catch (\Throwable) {
+                // Best-effort: notify linked merchants + staff.
+            }
+        }
 
         return back()->with('success', $on
             ? "Channel \"{$data['channel']}\" put in maintenance; its accounts will not receive new payments."

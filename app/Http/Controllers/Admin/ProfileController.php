@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Support\Audit;
+use App\Telegram\LinkService;
+use App\Telegram\TelegramClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,5 +34,28 @@ class ProfileController extends Controller
         Audit::log('admin.password_changed', $request->user());
 
         return back()->with('success', 'Password updated.');
+    }
+
+    /** Start the "Connect Telegram" handshake for the signed-in staff member. */
+    public function connectTelegram(Request $request, LinkService $links, TelegramClient $client): RedirectResponse
+    {
+        if (! $client->botUsername()) {
+            return redirect()->to(route('admin.profile.edit').'#telegram')
+                ->with('error', 'Telegram is not set up yet (no bot token / username).');
+        }
+
+        $token = $links->createToken($request->user());
+        Audit::log('admin.telegram_connect_started', $request->user());
+
+        return redirect()->to(route('admin.profile.edit').'#telegram')
+            ->with('telegram_link', $links->deepLink($token));
+    }
+
+    public function disconnectTelegram(Request $request, LinkService $links): RedirectResponse
+    {
+        $links->unbind($request->user());
+        Audit::log('admin.telegram_disconnected', $request->user());
+
+        return redirect()->to(route('admin.profile.edit').'#telegram')->with('success', 'Telegram disconnected.');
     }
 }

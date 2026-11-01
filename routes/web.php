@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\SettlementController;
 use App\Http\Controllers\Admin\SmsController;
+use App\Http\Controllers\Admin\TelegramController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DocsController;
@@ -55,6 +56,8 @@ Route::prefix('merchant')->name('merchant.')->group(function () {
         Route::get('verify', [PortalController::class, 'verifyForm'])->name('verify');
         Route::post('verify/credentials', [PortalController::class, 'verifyCredentials'])->middleware('throttle:merchant-sensitive')->name('verify.credentials');
         Route::post('verify/signature', [PortalController::class, 'verifySignature'])->middleware('throttle:merchant-sensitive')->name('verify.signature');
+        Route::post('telegram/connect', [PortalController::class, 'connectTelegram'])->middleware('throttle:merchant-sensitive')->name('telegram.connect');
+        Route::post('telegram/disconnect', [PortalController::class, 'disconnectTelegram'])->middleware('throttle:merchant-sensitive')->name('telegram.disconnect');
     });
 });
 
@@ -108,6 +111,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('settings/{tab?}', [SettingsController::class, 'edit'])->middleware('perm:settings.manage')->name('settings.edit')->whereIn('tab', SettingsController::TABS);
         Route::put('settings/{tab}', [SettingsController::class, 'update'])->middleware('perm:settings.manage')->name('settings.update')->whereIn('tab', SettingsController::TABS);
         Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->middleware('perm:settings.manage')->name('settings.verifier-key');
+        Route::post('telegram/webhook', [TelegramController::class, 'setWebhook'])->middleware('perm:settings.manage')->name('telegram.webhook');
+        Route::delete('telegram/webhook', [TelegramController::class, 'deleteWebhook'])->middleware('perm:settings.manage')->name('telegram.webhook.delete');
 
         Route::get('reports', ReportController::class)->middleware('perm:reports.view')->name('reports');
 
@@ -146,5 +151,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+        Route::post('profile/telegram/connect', [ProfileController::class, 'connectTelegram'])->name('profile.telegram.connect');
+        Route::post('profile/telegram/disconnect', [ProfileController::class, 'disconnectTelegram'])->name('profile.telegram.disconnect');
     });
 });

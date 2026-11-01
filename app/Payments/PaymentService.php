@@ -9,6 +9,7 @@ use App\Models\PaymentEvent;
 use App\Payments\Exceptions\GatewayException;
 use App\Payments\Providers\ProviderRegistry;
 use App\Support\Settings;
+use App\Telegram\TelegramNotifier;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,8 +26,7 @@ class PaymentService
         private readonly ProviderRegistry $providers,
         private readonly FeeCalculator $fees,
         private readonly CallbackDispatcher $callbacks,
-    ) {
-    }
+    ) {}
 
     /**
      * Create a payment request, or return the existing one when the same
@@ -133,6 +133,12 @@ class PaymentService
 
         $this->log($payment, 'status_changed', $from, $to, $actor, $data, $ip);
         $this->callbacks->dispatch($payment);
+
+        try {
+            app(TelegramNotifier::class)->paymentStatusChanged($payment);
+        } catch (\Throwable) {
+            // Best-effort: a Telegram problem never breaks the payment flow.
+        }
 
         return true;
     }

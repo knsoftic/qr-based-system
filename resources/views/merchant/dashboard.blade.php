@@ -118,6 +118,34 @@ Idempotency-Key: &lt;unique per order attempt&gt;   (POST only)</pre>
         </div>
     </div>
 
+    <div class="card" id="telegram">
+        <div class="card-head"><h2>Telegram notifications</h2></div>
+        <div class="card-body">
+            @if ($merchant->isTelegramLinked())
+                <p class="mt-0">Connected ✅ @if ($merchant->telegram_username)<span class="mono">@{{ $merchant->telegram_username }}</span>@endif · since {{ $merchant->telegram_linked_at?->timezone('Asia/Karachi')->format('d M Y, H:i') }}</p>
+                <p class="muted">You receive payment, callback and withdrawal alerts there, and can send <span class="mono">/balance</span>, <span class="mono">/txns</span>, <span class="mono">/health</span>, <span class="mono">/channels</span>.</p>
+                <form method="POST" action="{{ route('merchant.telegram.disconnect') }}" onsubmit="return confirm('Disconnect Telegram? You will stop receiving notifications there.')">
+                    @csrf
+                    <button type="submit" class="btn btn--danger">Disconnect Telegram</button>
+                </form>
+            @else
+                <p class="muted mt-0">Connect Telegram to get payment / callback / withdrawal alerts and to check your balance and transactions with simple commands — no login needed.</p>
+                @if (session('telegram_link'))
+                    <div class="alert alert--info">
+                        <strong>Open this link in Telegram to finish connecting.</strong> It is valid for 15 minutes.
+                        <div style="margin-top:.6rem"><a href="{{ session('telegram_link') }}" target="_blank" rel="noopener" class="btn btn--primary">Open Telegram →</a></div>
+                        <div class="mono" style="margin-top:.6rem; word-break:break-all">{{ session('telegram_link') }}</div>
+                    </div>
+                @else
+                    <form method="POST" action="{{ route('merchant.telegram.connect') }}">
+                        @csrf
+                        <button type="submit" class="btn btn--primary">Connect Telegram</button>
+                    </form>
+                @endif
+            @endif
+        </div>
+    </div>
+
     <div class="card" id="ip-allowlist">
         <div class="card-head"><h2>API IP allowlist</h2></div>
         <div class="card-body">

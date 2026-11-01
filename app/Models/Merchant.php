@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentStatus;
+use App\Models\Concerns\HasTelegram;
+use App\Support\IpAllowlist;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Str;
@@ -12,6 +16,8 @@ use Illuminate\Support\Str;
  */
 class Merchant extends Authenticatable
 {
+    use HasTelegram;
+
     // Portal logins never use "remember me".
     protected $rememberTokenName = '';
 
@@ -63,7 +69,7 @@ class Merchant extends Authenticatable
     }
 
     /** The agent who owns this merchant (set from an approved request). */
-    public function agent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function agent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'agent_id');
     }
@@ -71,13 +77,13 @@ class Merchant extends Authenticatable
     /** @return list<string> */
     public function payinIps(): array
     {
-        return \App\Support\IpAllowlist::parse($this->payin_ip_allowlist);
+        return IpAllowlist::parse($this->payin_ip_allowlist);
     }
 
     /** @return list<string> */
     public function payoutIps(): array
     {
-        return \App\Support\IpAllowlist::parse($this->payout_ip_allowlist);
+        return IpAllowlist::parse($this->payout_ip_allowlist);
     }
 
     /**
@@ -103,7 +109,7 @@ class Merchant extends Authenticatable
     {
         $rules = $this->allowedIps($scope);
 
-        return $rules !== [] && \App\Support\IpAllowlist::matches($ip, $rules);
+        return $rules !== [] && IpAllowlist::matches($ip, $rules);
     }
 
     public function payouts(): HasMany
@@ -114,7 +120,7 @@ class Merchant extends Authenticatable
     /** Net earnings from paid payments (after our fees). */
     public function earnedNet(): float
     {
-        return (float) $this->payments()->where('status', \App\Enums\PaymentStatus::Paid->value)->sum('net_amount');
+        return (float) $this->payments()->where('status', PaymentStatus::Paid->value)->sum('net_amount');
     }
 
     private function payoutsSum(array $statuses): float

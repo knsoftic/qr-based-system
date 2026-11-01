@@ -6,6 +6,7 @@ use App\Models\CallbackDelivery;
 use App\Models\Payment;
 use App\Payments\CallbackDispatcher;
 use App\Support\UrlGuard;
+use App\Telegram\TelegramNotifier;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -19,9 +20,7 @@ class SendPaymentCallback
 {
     use Dispatchable;
 
-    public function __construct(public readonly int $paymentId)
-    {
-    }
+    public function __construct(public readonly int $paymentId) {}
 
     public function handle(CallbackDispatcher $dispatcher): void
     {
@@ -78,7 +77,7 @@ class SendPaymentCallback
 
     private function record(Payment $payment, string $url, array $payload, int $attempt, ?int $code = null, ?string $body = null, ?string $error = null, bool $success = false, ?float $started = null): void
     {
-        CallbackDelivery::query()->create([
+        $delivery = CallbackDelivery::query()->create([
             'payment_id' => $payment->id,
             'url' => $url,
             'payload' => $payload,
@@ -89,5 +88,13 @@ class SendPaymentCallback
             'success' => $success,
             'duration_ms' => $started ? (int) round((microtime(true) - $started) * 1000) : null,
         ]);
+
+        if (! $success) {
+            try {
+                app(TelegramNotifier::class)->callbackFailed($payment, $delivery);
+            } catch (Throwable) {
+                // Best-effort Telegram notification.
+            }
+        }
     }
 }

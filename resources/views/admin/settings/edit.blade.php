@@ -16,6 +16,7 @@
         <a href="{{ route('admin.settings.edit', 'fees') }}" @class(['active' => $tab === 'fees'])>Fees</a>
         <a href="{{ route('admin.settings.edit', 'api') }}" @class(['active' => $tab === 'api'])>API</a>
         <a href="{{ route('admin.settings.edit', 'verification') }}" @class(['active' => $tab === 'verification'])>Verification</a>
+        <a href="{{ route('admin.settings.edit', 'telegram') }}" @class(['active' => $tab === 'telegram'])>Telegram</a>
     </nav>
 
     <div class="card" style="max-width: 720px">
@@ -46,6 +47,48 @@
                     @csrf
                     <button type="submit" class="btn btn--primary">{{ $settings['verification.key_hash'] ? 'Regenerate key' : 'Generate key' }}</button>
                 </form>
+            @elseif ($tab === 'telegram')
+                @php
+                    $tgConfigured = (string) config('services.telegram.bot_token') !== '';
+                    $tgUsername = config('services.telegram.bot_username');
+                    $tgSecretSet = (string) config('services.telegram.webhook_secret') !== '';
+                @endphp
+                <h2>Telegram bot</h2>
+                <p class="muted">
+                    Merchants and staff connect their Telegram to get payment, callback, withdrawal and
+                    channel-maintenance alerts, and to check balance / transactions with commands
+                    (<code>/balance</code>, <code>/txns</code>, <code>/health</code>, <code>/channels</code>).
+                    The bot token lives only in <code>.env</code> (this repo is public).
+                </p>
+                <dl class="kv">
+                    <dt>Bot token</dt>
+                    <dd>@if ($tgConfigured)<span class="badge badge--success">Set</span>@else<span class="badge badge--inactive">Not set (TELEGRAM_BOT_TOKEN)</span>@endif</dd>
+                    <dt>Bot username</dt>
+                    <dd>@if ($tgUsername)<span class="mono">{{ '@'.ltrim($tgUsername, '@') }}</span>@else<span class="muted">Not set (TELEGRAM_BOT_USERNAME)</span>@endif</dd>
+                    <dt>Webhook secret</dt>
+                    <dd>@if ($tgSecretSet)<span class="badge badge--success">Set</span>@else<span class="badge badge--inactive">Not set (TELEGRAM_WEBHOOK_SECRET)</span>@endif</dd>
+                </dl>
+
+                @if ($tgConfigured && $tgSecretSet)
+                    <div class="filters" style="margin-top:1rem">
+                        <form method="POST" action="{{ route('admin.telegram.webhook') }}">
+                            @csrf
+                            <button type="submit" class="btn btn--primary">Register / refresh webhook</button>
+                        </form>
+                        <form method="POST" action="{{ route('admin.telegram.webhook.delete') }}"
+                              onsubmit="return confirm('Remove the webhook? The bot will stop receiving commands.')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn--danger">Remove webhook</button>
+                        </form>
+                    </div>
+                @else
+                    <div class="alert alert--info" style="margin-top:1rem">
+                        Add <code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_BOT_USERNAME</code> and a random
+                        <code>TELEGRAM_WEBHOOK_SECRET</code> to <code>.env</code> (then clear config cache), or run
+                        <code>php artisan telegram:set-webhook</code> on the server.
+                    </div>
+                @endif
             @else
                 <form method="POST" action="{{ route('admin.settings.update', $tab) }}">
                     @csrf

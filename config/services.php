@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // Telegram bot for merchant / manager / agent notifications + commands.
+    // Secrets live only in .env (this repo is public); leave empty to disable.
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        'api_url' => env('TELEGRAM_API_URL', 'https://api.telegram.org'),
+    ],
+
 ];

@@ -7,6 +7,7 @@ use App\Models\Payout;
 use App\Models\User;
 use App\Payments\Exceptions\GatewayException;
 use App\Support\Settings;
+use App\Telegram\TelegramNotifier;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,9 +16,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PayoutService
 {
-    public function __construct(private readonly Settings $settings)
-    {
-    }
+    public function __construct(private readonly Settings $settings) {}
 
     /**
      * @param  array{method: string, account_number: string, amount: string|float, account_name?: ?string, note?: ?string}  $data
@@ -96,6 +95,14 @@ class PayoutService
             ]);
 
         $payout->refresh();
+
+        if ($affected > 0) {
+            try {
+                app(TelegramNotifier::class)->payoutSettled($payout);
+            } catch (\Throwable) {
+                // Best-effort Telegram notification.
+            }
+        }
 
         return $affected > 0;
     }

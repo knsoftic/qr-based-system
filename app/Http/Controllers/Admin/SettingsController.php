@@ -15,11 +15,9 @@ use Illuminate\View\View;
 
 class SettingsController extends Controller
 {
-    public const TABS = ['payin', 'payout', 'fees', 'api', 'verification'];
+    public const TABS = ['payin', 'payout', 'fees', 'api', 'verification', 'telegram'];
 
-    public function __construct(private readonly Settings $settings)
-    {
-    }
+    public function __construct(private readonly Settings $settings) {}
 
     public function edit(string $tab = 'payin'): View
     {

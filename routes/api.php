@@ -4,8 +4,13 @@ use App\Http\Controllers\Api\BalanceController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PayoutController;
 use App\Http\Controllers\Api\SmsController;
+use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
+
+// Telegram bot webhook (no auth middleware — verified by secret path + header).
+Route::post('telegram/webhook/{secret}', [TelegramWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1');
 
 Route::prefix('v1')->group(function () {
     Route::middleware(['throttle:merchant-api', 'merchant.auth'])->group(function () {
