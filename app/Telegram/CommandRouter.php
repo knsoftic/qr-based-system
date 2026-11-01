@@ -361,16 +361,17 @@ class CommandRouter
                 $lines[] = $tick($c['working']).e($c['name']);
             }
         } else {
-            // No Channel named on the payment accounts yet — show overall
-            // deposit availability so it is never blank. Name a Channel
-            // (easypaisa / JazzCash / Bank card) on each account for per-method rows.
-            $accounts = PaymentAccount::query()->get();
-            if ($accounts->isEmpty()) {
-                $lines[] = '❌ No payment accounts';
-            } else {
-                $ready = $accounts->reject(fn (PaymentAccount $a) => $a->inMaintenance())->count();
-                $lines[] = $tick($ready > 0).'Deposits ('.$ready.'/'.$accounts->count().' accounts ready)';
-            }
+            // No Channel named on the payment accounts yet — show overall deposit
+            // health as a traffic light (name a Channel on each account for
+            // per-method rows). 🟢 more than half the accounts ready, 🟡 exactly
+            // half, 🔴 fewer than half / none.
+            $total = PaymentAccount::query()->count();
+            $ready = PaymentAccount::query()->get()
+                ->reject(fn (PaymentAccount $a) => $a->inMaintenance())
+                ->count();
+
+            $dot = $total === 0 ? '🔴' : ($ready * 2 > $total ? '🟢' : ($ready * 2 === $total ? '🟡' : '🔴'));
+            $lines[] = $dot.' Deposits';
         }
 
         // Pay-Out: the withdrawal methods. ❌ when pay-out is off or that method
