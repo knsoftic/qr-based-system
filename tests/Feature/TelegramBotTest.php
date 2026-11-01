@@ -306,6 +306,17 @@ class TelegramBotTest extends TestCase
         $this->assertSentText('working');
     }
 
+    public function test_channels_shows_account_status_when_no_channel_names(): void
+    {
+        [$merchant] = $this->makeMerchant();
+        app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
+        $this->makeAccount(); // a usable account with no channel name
+
+        $this->webhook($this->update('/channels'))->assertOk();
+
+        $this->assertSentText('can accept payments');
+    }
+
     public function test_a_channel_with_all_limits_used_is_not_working(): void
     {
         $account = $this->makeAccount('PK00DEMO0000001234567890', ['channel' => 'easypaisa', 'daily_limit' => 100]);

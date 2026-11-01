@@ -5,6 +5,7 @@ namespace App\Telegram;
 use App\Models\CallbackDelivery;
 use App\Models\Merchant;
 use App\Models\Payment;
+use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\User;
 use App\Payments\Exceptions\GatewayException;
@@ -351,21 +352,35 @@ class CommandRouter
     {
         $channels = $this->channels->overview();
 
-        if ($channels->isEmpty()) {
-            return 'No payment channels configured yet.';
-        }
-
-        $lines = ['📡 <b>Payment channels</b>'];
-        foreach ($channels as $c) {
-            if ($c['working']) {
-                $lines[] = '✅ '.e($c['name']).' — working ('.$c['usable'].'/'.$c['total'].' accounts ready)';
-            } else {
-                $reason = $c['maintenance'] ? 'maintenance' : 'no capacity (limits used / disabled)';
-                $lines[] = '🛠️ '.e($c['name']).' — '.$reason;
+        if ($channels->isNotEmpty()) {
+            $lines = ['📡 <b>Payment channels</b>'];
+            foreach ($channels as $c) {
+                if ($c['working']) {
+                    $lines[] = '✅ '.e($c['name']).' — working ('.$c['usable'].'/'.$c['total'].' accounts ready)';
+                } else {
+                    $reason = $c['maintenance'] ? 'maintenance' : 'no capacity (limits used / disabled)';
+                    $lines[] = '🛠️ '.e($c['name']).' — '.$reason;
+                }
             }
+
+            return implode("\n", $lines);
         }
 
-        return implode("\n", $lines);
+        // No channel names set on the accounts yet — show an overall status
+        // instead of a dead end. Never expose account names/numbers here.
+        $accounts = PaymentAccount::query()->get();
+        if ($accounts->isEmpty()) {
+            return 'No payment accounts configured yet.';
+        }
+
+        $total = $accounts->count();
+        $ready = $accounts->reject(fn (PaymentAccount $a) => $a->inMaintenance())->count();
+
+        return "📡 <b>Payment status</b>\n"
+            .($ready > 0
+                ? '✅ Working — '.$ready.'/'.$total.' accounts can accept payments now.'
+                : '🛠️ No capacity — all '.$total.' accounts are over limit or unavailable.')
+            ."\n\n<i>Channels aren't grouped yet. In the admin panel, set a Channel (e.g. easypaisa, JazzCash) on each payment account.</i>";
     }
 
     private function unlink(Model $owner): string
