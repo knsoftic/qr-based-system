@@ -316,7 +316,7 @@ class TelegramBotTest extends TestCase
 
         $this->webhook($this->update('/channels'))->assertOk();
 
-        $this->assertSentText('No channels named yet');
+        $this->assertSentText('Deposits');  // overall availability when no channel names
         $this->assertSentText('Pay-Out');
     }
 

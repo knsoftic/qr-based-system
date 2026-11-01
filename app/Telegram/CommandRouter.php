@@ -5,6 +5,7 @@ namespace App\Telegram;
 use App\Models\CallbackDelivery;
 use App\Models\Merchant;
 use App\Models\Payment;
+use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\User;
 use App\Payments\Exceptions\GatewayException;
@@ -355,11 +356,20 @@ class CommandRouter
         // bank card ...). Working = at least one account can still take a payment.
         $lines = ['📡 <b>Channels</b>', '', '<b>Pay-In</b>'];
         $payin = $this->channels->overview();
-        if ($payin->isEmpty()) {
-            $lines[] = 'No channels named yet.';
-        } else {
+        if ($payin->isNotEmpty()) {
             foreach ($payin as $c) {
                 $lines[] = $tick($c['working']).e($c['name']);
+            }
+        } else {
+            // No Channel named on the payment accounts yet — show overall
+            // deposit availability so it is never blank. Name a Channel
+            // (easypaisa / JazzCash / Bank card) on each account for per-method rows.
+            $accounts = PaymentAccount::query()->get();
+            if ($accounts->isEmpty()) {
+                $lines[] = '❌ No payment accounts';
+            } else {
+                $ready = $accounts->reject(fn (PaymentAccount $a) => $a->inMaintenance())->count();
+                $lines[] = $tick($ready > 0).'Deposits ('.$ready.'/'.$accounts->count().' accounts ready)';
             }
         }
 
