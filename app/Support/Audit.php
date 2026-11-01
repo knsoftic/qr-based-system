@@ -20,6 +20,8 @@ class Audit
         'qr_payload',
         'remember_token',
         'verification.key_hash',
+        'telegram.bot_token',
+        'telegram.webhook_secret',
     ];
 
     /**

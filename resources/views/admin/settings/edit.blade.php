@@ -49,28 +49,47 @@
                 </form>
             @elseif ($tab === 'telegram')
                 @php
-                    $tgConfigured = (string) config('services.telegram.bot_token') !== '';
-                    $tgUsername = config('services.telegram.bot_username');
-                    $tgSecretSet = (string) config('services.telegram.webhook_secret') !== '';
+                    $tg = app(\App\Telegram\TelegramConfig::class);
+                    $tgConfigured = $tg->configured();
+                    $tgFromDb = $tg->hasDbToken();
+                    $tgUsername = $tg->botUsername();
+                    $tgSecretSet = $tg->webhookSecret() !== '';
                 @endphp
                 <h2>Telegram bot</h2>
                 <p class="muted">
                     Merchants and staff connect their Telegram to get payment, callback, withdrawal and
                     channel-maintenance alerts, and to check balance / transactions with commands
                     (<code>/balance</code>, <code>/txns</code>, <code>/health</code>, <code>/channels</code>).
-                    The bot token lives only in <code>.env</code> (this repo is public).
+                    Create a bot with <code>@@BotFather</code>, paste its token below, then register the webhook.
+                    The token is stored encrypted and never shown again.
                 </p>
-                <dl class="kv">
-                    <dt>Bot token</dt>
-                    <dd>@if ($tgConfigured)<span class="badge badge--success">Set</span>@else<span class="badge badge--inactive">Not set (TELEGRAM_BOT_TOKEN)</span>@endif</dd>
-                    <dt>Bot username</dt>
-                    <dd>@if ($tgUsername)<span class="mono">{{ '@'.ltrim($tgUsername, '@') }}</span>@else<span class="muted">Not set (TELEGRAM_BOT_USERNAME)</span>@endif</dd>
-                    <dt>Webhook secret</dt>
-                    <dd>@if ($tgSecretSet)<span class="badge badge--success">Set</span>@else<span class="badge badge--inactive">Not set (TELEGRAM_WEBHOOK_SECRET)</span>@endif</dd>
-                </dl>
 
-                @if ($tgConfigured && $tgSecretSet)
-                    <div class="filters" style="margin-top:1rem">
+                <form method="POST" action="{{ route('admin.telegram.save') }}" autocomplete="off">
+                    @csrf
+                    <div class="form-row">
+                        <label for="bot_token">Bot token @if ($tgConfigured)<span class="badge badge--success">Set</span>@endif</label>
+                        <input id="bot_token" type="password" name="bot_token" autocomplete="off"
+                               placeholder="{{ $tgConfigured ? 'Leave blank to keep the current token' : '123456:ABC-DEF1234ghIkl...' }}">
+                        @error('bot_token')<div class="hint" style="color:var(--danger)">{{ $message }}</div>@enderror
+                        @if ($tgFromDb)
+                            <label class="checkbox" style="margin-top:.4rem"><input type="checkbox" name="remove_token" value="1"> Remove the saved token</label>
+                        @endif
+                    </div>
+                    <div class="form-row">
+                        <label for="bot_username">Bot username</label>
+                        <input id="bot_username" type="text" name="bot_username" value="{{ $tgUsername }}" placeholder="YourBotName">
+                        <div class="hint">Without the @@ symbol, e.g. <span class="mono">PKPayBot</span>. Used for the connect link.</div>
+                        @error('bot_username')<div class="hint" style="color:var(--danger)">{{ $message }}</div>@enderror
+                    </div>
+                    <button type="submit" class="btn btn--primary">Save Telegram settings</button>
+                </form>
+
+                <hr style="margin:1.4rem 0; border:none; border-top:1px solid var(--border, #e5e7eb)">
+
+                <h3>Webhook</h3>
+                <p class="muted mt-0">Status: @if ($tgSecretSet)<span class="badge badge--success">Registered / secret set</span>@else<span class="badge badge--inactive">Not registered yet</span>@endif</p>
+                @if ($tgConfigured)
+                    <div class="filters">
                         <form method="POST" action="{{ route('admin.telegram.webhook') }}">
                             @csrf
                             <button type="submit" class="btn btn--primary">Register / refresh webhook</button>
@@ -82,12 +101,9 @@
                             <button type="submit" class="btn btn--danger">Remove webhook</button>
                         </form>
                     </div>
+                    <p class="hint">Registering generates a secret automatically and points Telegram at this server.</p>
                 @else
-                    <div class="alert alert--info" style="margin-top:1rem">
-                        Add <code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_BOT_USERNAME</code> and a random
-                        <code>TELEGRAM_WEBHOOK_SECRET</code> to <code>.env</code> (then clear config cache), or run
-                        <code>php artisan telegram:set-webhook</code> on the server.
-                    </div>
+                    <div class="alert alert--info">Save the bot token above first, then register the webhook.</div>
                 @endif
             @else
                 <form method="POST" action="{{ route('admin.settings.update', $tab) }}">

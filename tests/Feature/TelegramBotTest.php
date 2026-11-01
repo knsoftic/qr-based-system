@@ -6,9 +6,11 @@ use App\Jobs\SendTelegramMessage;
 use App\Models\CallbackDelivery;
 use App\Models\Payment;
 use App\Telegram\LinkService;
+use App\Telegram\TelegramConfig;
 use App\Telegram\TelegramNotifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\Concerns\GatewayHelpers;
 use Tests\TestCase;
@@ -193,5 +195,38 @@ class TelegramBotTest extends TestCase
         app(TelegramNotifier::class)->callbackFailed($payment, $delivery);
 
         $this->assertSentText('Callback failed');
+    }
+
+    public function test_admin_saves_the_bot_token_encrypted_from_the_panel(): void
+    {
+        // Remove the .env fallback so only the panel (DB) value is in play.
+        config(['services.telegram.bot_token' => '', 'services.telegram.bot_username' => '']);
+
+        $this->actingAs($this->makeAdmin());
+        $this->post(route('admin.telegram.save'), [
+            'bot_token' => '987654:REAL-token_value',
+            'bot_username' => '@MyShopBot',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        // Stored, but never in plain text.
+        $raw = (string) DB::table('settings')->where('key', 'telegram.bot_token')->value('value');
+        $this->assertNotEmpty($raw);
+        $this->assertStringNotContainsString('987654:REAL-token_value', $raw);
+
+        $config = app(TelegramConfig::class);
+        $this->assertSame('987654:REAL-token_value', $config->botToken());
+        $this->assertSame('MyShopBot', $config->botUsername());
+    }
+
+    public function test_a_panel_webhook_secret_takes_precedence_over_env(): void
+    {
+        app(TelegramConfig::class)->setWebhookSecret('dbsecret12345');
+
+        // The panel secret is accepted; the .env one from setUp is now ignored.
+        $this->postJson('/api/telegram/webhook/dbsecret12345', $this->update('/help'),
+            ['X-Telegram-Bot-Api-Secret-Token' => 'dbsecret12345'])->assertOk();
+
+        $this->postJson('/api/telegram/webhook/'.self::SECRET, $this->update('/help'),
+            ['X-Telegram-Bot-Api-Secret-Token' => self::SECRET])->assertNotFound();
     }
 }

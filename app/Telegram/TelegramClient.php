@@ -12,16 +12,16 @@ use Illuminate\Support\Facades\Log;
  */
 class TelegramClient
 {
+    public function __construct(private readonly TelegramConfig $config) {}
+
     public function configured(): bool
     {
-        return (string) config('services.telegram.bot_token') !== '';
+        return $this->config->configured();
     }
 
     public function botUsername(): ?string
     {
-        $u = (string) config('services.telegram.bot_username');
-
-        return $u !== '' ? ltrim($u, '@') : null;
+        return $this->config->botUsername();
     }
 
     /**
@@ -106,7 +106,7 @@ class TelegramClient
     private function endpoint(string $method): string
     {
         $base = rtrim((string) config('services.telegram.api_url', 'https://api.telegram.org'), '/');
-        $token = (string) config('services.telegram.bot_token');
+        $token = $this->config->botToken();
 
         return "{$base}/bot{$token}/{$method}";
     }

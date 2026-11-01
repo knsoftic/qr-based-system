@@ -53,7 +53,7 @@
                         <div style="margin-top:.6rem"><a href="{{ session('telegram_link') }}" target="_blank" rel="noopener" class="btn btn--primary">Open Telegram →</a></div>
                         <div class="mono" style="margin-top:.6rem; word-break:break-all">{{ session('telegram_link') }}</div>
                     </div>
-                @elseif (config('services.telegram.bot_username'))
+                @elseif (app(\App\Telegram\TelegramConfig::class)->botUsername())
                     <form method="POST" action="{{ route('admin.profile.telegram.connect') }}">
                         @csrf
                         <button type="submit" class="btn btn--primary">Connect Telegram</button>

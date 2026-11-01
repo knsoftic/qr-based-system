@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Telegram\CommandRouter;
+use App\Telegram\TelegramConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -15,11 +16,14 @@ use Illuminate\Http\Request;
  */
 class TelegramWebhookController extends Controller
 {
-    public function __construct(private readonly CommandRouter $router) {}
+    public function __construct(
+        private readonly CommandRouter $router,
+        private readonly TelegramConfig $config,
+    ) {}
 
     public function handle(Request $request, string $secret): JsonResponse
     {
-        $expected = (string) config('services.telegram.webhook_secret');
+        $expected = $this->config->webhookSecret();
         $header = (string) $request->header('X-Telegram-Bot-Api-Secret-Token', '');
 
         if ($expected === '' || ! hash_equals($expected, $secret) || ! hash_equals($expected, $header)) {

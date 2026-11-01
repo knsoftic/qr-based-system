@@ -111,6 +111,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('settings/{tab?}', [SettingsController::class, 'edit'])->middleware('perm:settings.manage')->name('settings.edit')->whereIn('tab', SettingsController::TABS);
         Route::put('settings/{tab}', [SettingsController::class, 'update'])->middleware('perm:settings.manage')->name('settings.update')->whereIn('tab', SettingsController::TABS);
         Route::post('settings/verification/key', [SettingsController::class, 'regenerateVerifierKey'])->middleware('perm:settings.manage')->name('settings.verifier-key');
+        Route::post('telegram/settings', [TelegramController::class, 'save'])->middleware('perm:settings.manage')->name('telegram.save');
         Route::post('telegram/webhook', [TelegramController::class, 'setWebhook'])->middleware('perm:settings.manage')->name('telegram.webhook');
         Route::delete('telegram/webhook', [TelegramController::class, 'deleteWebhook'])->middleware('perm:settings.manage')->name('telegram.webhook.delete');
 

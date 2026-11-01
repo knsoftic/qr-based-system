@@ -5,26 +5,53 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Support\Audit;
 use App\Telegram\TelegramClient;
+use App\Telegram\TelegramConfig;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 /**
- * Global Telegram bot configuration (Settings → Telegram). The token and
- * webhook secret live in .env; here an admin only registers / removes the
- * webhook with Telegram. The raw token is never shown or stored in the DB.
+ * Telegram bot configuration (Settings → Telegram). The admin sets the bot
+ * token and username here; they are stored encrypted in the settings table
+ * (never shown back, never in the audit log). The webhook can then be
+ * registered with Telegram from the same page.
  */
 class TelegramController extends Controller
 {
+    public function __construct(private readonly TelegramConfig $config) {}
+
+    public function save(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'bot_token' => ['nullable', 'string', 'max:200', 'regex:/^\d+:[\w-]+$/'],
+            'bot_username' => ['nullable', 'string', 'max:64', 'regex:/^@?\w{3,}$/'],
+        ], [
+            'bot_token.regex' => 'That does not look like a bot token (e.g. 123456:ABC-DEF...).',
+            'bot_username.regex' => 'Enter the bot username (letters, digits and _ only).',
+        ]);
+
+        if ($request->boolean('remove_token')) {
+            $this->config->setBotToken(null);
+        } elseif (! empty($data['bot_token'])) {
+            $this->config->setBotToken(trim($data['bot_token']));
+        }
+
+        $this->config->setBotUsername($data['bot_username'] ?? null);
+
+        Audit::log('telegram.settings_saved', null, [], [
+            'token' => $request->boolean('remove_token') ? 'removed' : (! empty($data['bot_token']) ? 'updated' : 'unchanged'),
+            'bot_username' => $this->config->botUsername(),
+        ]);
+
+        return $this->back('success', 'Telegram settings saved.');
+    }
+
     public function setWebhook(TelegramClient $client): RedirectResponse
     {
-        if (! $client->configured()) {
-            return $this->back('error', 'Set TELEGRAM_BOT_TOKEN in .env first.');
+        if (! $this->config->configured()) {
+            return $this->back('error', 'Add the bot token first.');
         }
 
-        $secret = (string) config('services.telegram.webhook_secret');
-        if ($secret === '') {
-            return $this->back('error', 'Set TELEGRAM_WEBHOOK_SECRET in .env first (any long random string).');
-        }
-
+        $secret = $this->config->ensureWebhookSecret();
         $url = url('/api/telegram/webhook/'.$secret);
         $result = $client->setWebhook($url, $secret);
         $ok = (bool) ($result['ok'] ?? false);

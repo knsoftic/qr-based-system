@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Payments\CallbackDispatcher;
 use App\Payments\PaymentService;
 use App\Telegram\TelegramClient;
+use App\Telegram\TelegramConfig;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -110,9 +111,9 @@ Artisan::command('accounts:close-month {--month= : YYYY-MM to snapshot (default:
     $this->info("Snapshotted {$saved} account(s) for {$when->format('M Y')}. Limits reset automatically for the new month.");
 })->purpose('Snapshot last month per-account totals (history); monthly limits reset on the 1st');
 
-Artisan::command('telegram:set-webhook {--delete : Remove the webhook instead of registering it}', function (TelegramClient $client) {
+Artisan::command('telegram:set-webhook {--delete : Remove the webhook instead of registering it}', function (TelegramClient $client, TelegramConfig $config) {
     if (! $client->configured()) {
-        $this->error('TELEGRAM_BOT_TOKEN is not set in .env.');
+        $this->error('No bot token set (admin Settings → Telegram, or TELEGRAM_BOT_TOKEN in .env).');
 
         return 1;
     }
@@ -124,13 +125,7 @@ Artisan::command('telegram:set-webhook {--delete : Remove the webhook instead of
         return ($result['ok'] ?? false) ? 0 : 1;
     }
 
-    $secret = (string) config('services.telegram.webhook_secret');
-    if ($secret === '') {
-        $this->error('TELEGRAM_WEBHOOK_SECRET is not set in .env (use any long random string).');
-
-        return 1;
-    }
-
+    $secret = $config->ensureWebhookSecret();
     $url = url('/api/telegram/webhook/'.$secret);
     $result = $client->setWebhook($url, $secret);
 
@@ -147,7 +142,7 @@ Artisan::command('telegram:set-webhook {--delete : Remove the webhook instead of
 
 Artisan::command('telegram:test {chat : Telegram chat id to message}', function (string $chat, TelegramClient $client) {
     if (! $client->configured()) {
-        $this->error('TELEGRAM_BOT_TOKEN is not set in .env.');
+        $this->error('No bot token set (admin Settings → Telegram, or TELEGRAM_BOT_TOKEN in .env).');
 
         return 1;
     }
