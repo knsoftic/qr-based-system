@@ -5,7 +5,6 @@ namespace App\Telegram;
 use App\Models\CallbackDelivery;
 use App\Models\Merchant;
 use App\Models\Payment;
-use App\Models\PaymentAccount;
 use App\Models\Payout;
 use App\Models\User;
 use App\Payments\Exceptions\GatewayException;
@@ -350,37 +349,30 @@ class CommandRouter
 
     private function channelStatus(): string
     {
-        $channels = $this->channels->overview();
+        $tick = fn (bool $ok): string => $ok ? '✅ ' : '❌ ';
 
-        if ($channels->isNotEmpty()) {
-            $lines = ['📡 <b>Payment channels</b>'];
-            foreach ($channels as $c) {
-                if ($c['working']) {
-                    $lines[] = '✅ '.e($c['name']).' — working ('.$c['usable'].'/'.$c['total'].' accounts ready)';
-                } else {
-                    $reason = $c['maintenance'] ? 'maintenance' : 'no capacity (limits used / disabled)';
-                    $lines[] = '🛠️ '.e($c['name']).' — '.$reason;
-                }
+        // Pay-In: the channels named on payment accounts (easypaisa, JazzCash,
+        // bank card ...). Working = at least one account can still take a payment.
+        $lines = ['📡 <b>Channels</b>', '', '<b>Pay-In</b>'];
+        $payin = $this->channels->overview();
+        if ($payin->isEmpty()) {
+            $lines[] = 'No channels named yet.';
+        } else {
+            foreach ($payin as $c) {
+                $lines[] = $tick($c['working']).e($c['name']);
             }
-
-            return implode("\n", $lines);
         }
 
-        // No channel names set on the accounts yet — show an overall status
-        // instead of a dead end. Never expose account names/numbers here.
-        $accounts = PaymentAccount::query()->get();
-        if ($accounts->isEmpty()) {
-            return 'No payment accounts configured yet.';
+        // Pay-Out: the withdrawal methods. ❌ when pay-out is off or that method
+        // is in channel maintenance.
+        $lines[] = '';
+        $lines[] = '<b>Pay-Out</b>';
+        $payoutOn = (bool) $this->settings->get('payout.enabled');
+        foreach (Payout::METHODS as $label) {
+            $lines[] = $tick($payoutOn && ! $this->channels->inMaintenance($label)).e($label);
         }
 
-        $total = $accounts->count();
-        $ready = $accounts->reject(fn (PaymentAccount $a) => $a->inMaintenance())->count();
-
-        return "📡 <b>Payment status</b>\n"
-            .($ready > 0
-                ? '✅ Working — '.$ready.'/'.$total.' accounts can accept payments now.'
-                : '🛠️ No capacity — all '.$total.' accounts are over limit or unavailable.')
-            ."\n\n<i>Channels aren't grouped yet. In the admin panel, set a Channel (e.g. easypaisa, JazzCash) on each payment account.</i>";
+        return implode("\n", $lines);
     }
 
     private function unlink(Model $owner): string

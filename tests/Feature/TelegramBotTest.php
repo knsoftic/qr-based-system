@@ -295,7 +295,7 @@ class TelegramBotTest extends TestCase
         $this->assertSentText('Pending');
     }
 
-    public function test_channels_command_shows_a_working_channel(): void
+    public function test_channels_command_lists_payin_and_payout(): void
     {
         [$merchant] = $this->makeMerchant();
         app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
@@ -303,10 +303,12 @@ class TelegramBotTest extends TestCase
 
         $this->webhook($this->update('/channels'))->assertOk();
 
-        $this->assertSentText('working');
+        $this->assertSentText('Pay-In');
+        $this->assertSentText('easypaisa');
+        $this->assertSentText('Pay-Out');
     }
 
-    public function test_channels_shows_account_status_when_no_channel_names(): void
+    public function test_channels_without_channel_names_still_shows_payout(): void
     {
         [$merchant] = $this->makeMerchant();
         app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
@@ -314,7 +316,8 @@ class TelegramBotTest extends TestCase
 
         $this->webhook($this->update('/channels'))->assertOk();
 
-        $this->assertSentText('can accept payments');
+        $this->assertSentText('No channels named yet');
+        $this->assertSentText('Pay-Out');
     }
 
     public function test_a_channel_with_all_limits_used_is_not_working(): void
