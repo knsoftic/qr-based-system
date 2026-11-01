@@ -7,12 +7,13 @@ use App\Models\Merchant;
 use App\Models\Payment;
 use App\Models\Payout;
 use App\Models\User;
-use App\Payments\PayInTester;
+use App\Payments\Exceptions\GatewayException;
 use App\Payments\PaymentService;
 use App\Support\Channels;
 use App\Support\Settings;
 use App\Support\SettlementService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 /**
  * Parses an incoming Telegram update and replies. Commands only ever reveal
@@ -176,22 +177,29 @@ class CommandRouter
             return 'Usage: <code>/pay &lt;amount&gt;</code>  e.g. <code>/pay 500</code>';
         }
 
-        $result = app(PayInTester::class)->run($owner, $amount, 'telegram');
-
-        if (! ($result['ok'] ?? false)) {
-            $error = $result['response']['error']['message'] ?? ('HTTP '.($result['status'] ?? '?'));
-
-            return '⚠️ Could not create the order: '.e($error);
+        try {
+            [$payment] = app(PaymentService::class)->create(
+                $owner,
+                [
+                    'amount' => number_format((float) $amount, 2, '.', ''),
+                    'order_id' => 'TG-'.now()->format('ymdHis').'-'.Str::upper(Str::random(4)),
+                    'description' => 'Telegram test',
+                    'metadata' => ['test' => 'true', 'source' => 'telegram'],
+                ],
+                'tg-'.Str::lower(Str::random(24)),
+                request()?->ip(),
+            );
+        } catch (GatewayException $e) {
+            return '⚠️ Could not create the order: '.e($e->getMessage());
         }
 
-        $data = $result['response']['data'];
-        $link = $data['short_url'] ?: $data['checkout_url'];
+        $link = $payment->shortUrl() ?: $payment->checkoutUrl();
 
         return "🧾 <b>Test order created</b>\n"
-            .'Amount: <b>'.Format::money($data['amount'])."</b>\n"
-            .'Order: <code>'.e($data['order_id'])."</code>\n\n"
+            .'Amount: <b>'.Format::money($payment->amount, $payment->currency)."</b>\n"
+            .'Order: <code>'.e($payment->order_id)."</code>\n\n"
             ."Pay / test here:\n".e($link)."\n\n"
-            .'Check status: <code>/order '.e($data['order_id']).'</code>'
+            .'Check status: <code>/order '.e($payment->order_id).'</code>'
             ."\n<i>Real request — paying moves real money.</i>";
     }
 

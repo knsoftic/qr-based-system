@@ -258,6 +258,19 @@ class TelegramBotTest extends TestCase
         $this->assertSentText('Test order created');
     }
 
+    public function test_pay_command_works_without_an_ip_allowlist(): void
+    {
+        // Empty allowlist blocks the public API, but the bot must still work.
+        [$merchant] = $this->makeMerchant(['payin_ip_allowlist' => null, 'payout_ip_allowlist' => null]);
+        $this->makeAccount();
+        app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
+
+        $this->webhook($this->update('/pay 300'))->assertOk();
+
+        $this->assertSame(1, Payment::query()->where('merchant_id', $merchant->id)->count());
+        $this->assertSentText('Test order created');
+    }
+
     public function test_pay_command_rejects_a_bad_amount(): void
     {
         [$merchant] = $this->makeMerchant();
