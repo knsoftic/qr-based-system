@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Merchant;
 use App\Models\Payment;
 use App\Support\Settings;
+use App\Telegram\LinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -46,6 +47,15 @@ class MerchantPortalTest extends TestCase
         $this->portalMerchant();
         $this->signIn();
         $this->get(route('merchant.login'))->assertRedirect(route('merchant.dashboard'));
+    }
+
+    public function test_the_dashboard_renders_when_telegram_is_linked(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        app(LinkService::class)->bind($merchant, '-1009', 'supergroup', 'grp');
+
+        $this->signIn();
+        $this->get(route('merchant.dashboard'))->assertOk();
     }
 
     public function test_admin_creates_a_merchant_with_a_portal_login_and_sees_the_password_once(): void

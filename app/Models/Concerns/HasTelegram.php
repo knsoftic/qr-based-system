@@ -9,6 +9,12 @@ namespace App\Models\Concerns;
  */
 trait HasTelegram
 {
+    /** Cast the link timestamp on every model that uses this trait. */
+    public function initializeHasTelegram(): void
+    {
+        $this->mergeCasts(['telegram_linked_at' => 'datetime']);
+    }
+
     public function isTelegramLinked(): bool
     {
         return filled($this->telegram_chat_id);

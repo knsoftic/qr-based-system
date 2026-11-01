@@ -376,6 +376,15 @@ class TelegramBotTest extends TestCase
         $this->assertSentText('connected to');
     }
 
+    public function test_admin_edit_page_renders_for_a_linked_merchant(): void
+    {
+        [$merchant] = $this->makeMerchant();
+        app(LinkService::class)->bind($merchant, '-1009', 'supergroup', 'grp');
+
+        $this->actingAs($this->makeAdmin());
+        $this->get(route('admin.merchants.edit', $merchant))->assertOk();
+    }
+
     public function test_admin_can_disconnect_a_merchant_telegram(): void
     {
         [$merchant] = $this->makeMerchant();
