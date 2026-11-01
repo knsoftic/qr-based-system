@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\SendTelegramMessage;
 use App\Models\CallbackDelivery;
 use App\Models\Payment;
+use App\Models\TelegramChat;
 use App\Telegram\LinkService;
 use App\Telegram\TelegramConfig;
 use App\Telegram\TelegramNotifier;
@@ -45,6 +46,20 @@ class TelegramBotTest extends TestCase
                 'chat' => ['id' => $chatId, 'type' => $type],
                 'from' => ['id' => $chatId, 'username' => 'tester'],
                 'text' => $text,
+            ],
+        ];
+    }
+
+    /** A message arriving from a group/channel the bot is in. */
+    private function groupUpdate(int $chatId, string $title, string $type = 'supergroup'): array
+    {
+        return [
+            'update_id' => random_int(1, 999999),
+            'message' => [
+                'message_id' => 1,
+                'chat' => ['id' => $chatId, 'type' => $type, 'title' => $title],
+                'from' => ['id' => 7, 'username' => 'someone'],
+                'text' => 'hello',
             ],
         ];
     }
@@ -228,5 +243,47 @@ class TelegramBotTest extends TestCase
 
         $this->postJson('/api/telegram/webhook/'.self::SECRET, $this->update('/help'),
             ['X-Telegram-Bot-Api-Secret-Token' => self::SECRET])->assertNotFound();
+    }
+
+    public function test_the_bot_remembers_group_chats_it_sees(): void
+    {
+        $this->webhook($this->groupUpdate(-2002, 'Ops Group'))->assertOk();
+
+        $this->assertDatabaseHas('telegram_chats', [
+            'chat_id' => '-2002', 'type' => 'supergroup', 'title' => 'Ops Group',
+        ]);
+    }
+
+    public function test_admin_attaches_a_telegram_group_to_a_merchant(): void
+    {
+        TelegramChat::query()->create([
+            'chat_id' => '-1009', 'type' => 'supergroup', 'title' => 'Shop Group', 'last_seen_at' => now(),
+        ]);
+        [$merchant] = $this->makeMerchant();
+
+        $this->actingAs($this->makeAdmin());
+        $this->put(route('admin.merchants.update', $merchant), [
+            'name' => $merchant->name,
+            'telegram_chat' => '-1009',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $fresh = $merchant->fresh();
+        $this->assertSame('-1009', $fresh->telegram_chat_id);
+        $this->assertSame('supergroup', $fresh->telegram_chat_type);
+        $this->assertSentText('connected to');
+    }
+
+    public function test_admin_can_disconnect_a_merchant_telegram(): void
+    {
+        [$merchant] = $this->makeMerchant();
+        app(LinkService::class)->bind($merchant, '-1009', 'supergroup', null);
+
+        $this->actingAs($this->makeAdmin());
+        $this->put(route('admin.merchants.update', $merchant), [
+            'name' => $merchant->name,
+            'telegram_chat' => '',
+        ])->assertRedirect();
+
+        $this->assertNull($merchant->fresh()->telegram_chat_id);
     }
 }

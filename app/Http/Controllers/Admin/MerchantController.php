@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
+use App\Models\TelegramChat;
 use App\Payments\PayInTester;
 use App\Payments\PaymentService;
 use App\Support\Audit;
 use App\Support\IpAllowlist;
 use App\Support\UrlGuard;
+use App\Telegram\LinkService;
+use App\Telegram\TelegramConfig;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,10 +38,12 @@ class MerchantController extends Controller
 
     public function create(): View
     {
-        return view('admin.merchants.create', ['merchant' => new Merchant(['is_active' => true, 'portal_enabled' => true])]);
+        return view('admin.merchants.create', [
+            'merchant' => new Merchant(['is_active' => true, 'portal_enabled' => true]),
+        ] + $this->telegramFormData());
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, LinkService $links): RedirectResponse
     {
         $data = $this->validated($request);
 
@@ -49,10 +54,13 @@ class MerchantController extends Controller
 
         Audit::log('merchant.created', $merchant, [], $merchant->only(['name', 'email', 'website', 'is_active', 'username', 'portal_enabled']));
 
-        return redirect()->route('admin.merchants.show', $merchant)
+        $tg = $links->attachFromAdmin($merchant, $request->input('telegram_chat'), $request->input('telegram_chat_manual'));
+
+        return $this->withTelegram(redirect()->route('admin.merchants.show', $merchant)
             ->with('new_secret', $secret)
             ->with('new_portal_password', $portalPassword)
-            ->with('success', 'Merchant created. Copy the API secret now; it will not be shown again.');
+            ->with('success', 'Merchant created. Copy the API secret now; it will not be shown again.'
+                .($tg['ok'] && $tg['message'] ? ' '.$tg['message'] : '')), $tg);
     }
 
     public function show(Merchant $merchant, PayInTester $tester, PaymentService $payments): View
@@ -68,10 +76,10 @@ class MerchantController extends Controller
 
     public function edit(Merchant $merchant): View
     {
-        return view('admin.merchants.edit', ['merchant' => $merchant]);
+        return view('admin.merchants.edit', ['merchant' => $merchant] + $this->telegramFormData());
     }
 
-    public function update(Request $request, Merchant $merchant): RedirectResponse
+    public function update(Request $request, Merchant $merchant, LinkService $links): RedirectResponse
     {
         $data = $this->validated($request, $merchant);
         $wasEnabled = $merchant->portal_enabled;
@@ -87,9 +95,30 @@ class MerchantController extends Controller
 
         Audit::log('merchant.updated', $merchant, ...Audit::changes($merchant));
 
-        return redirect()->route('admin.merchants.show', $merchant)
+        $tg = $links->attachFromAdmin($merchant, $request->input('telegram_chat'), $request->input('telegram_chat_manual'));
+
+        return $this->withTelegram(redirect()->route('admin.merchants.show', $merchant)
             ->with('new_portal_password', $portalPassword)
-            ->with('success', 'Merchant updated.');
+            ->with('success', 'Merchant updated.'.($tg['ok'] && $tg['message'] ? ' '.$tg['message'] : '')), $tg);
+    }
+
+    /**
+     * Data the create/edit form needs for the Telegram attach section.
+     */
+    private function telegramFormData(): array
+    {
+        return [
+            'telegramChats' => TelegramChat::query()->orderByDesc('last_seen_at')->get(),
+            'telegramConfigured' => app(TelegramConfig::class)->configured(),
+        ];
+    }
+
+    /**
+     * @param  array{ok: bool, message: ?string}  $tg
+     */
+    private function withTelegram(RedirectResponse $redirect, array $tg): RedirectResponse
+    {
+        return $tg['ok'] ? $redirect : $redirect->with('error', $tg['message']);
     }
 
     public function rotate(Merchant $merchant): RedirectResponse
@@ -173,11 +202,13 @@ class MerchantController extends Controller
                 Rule::unique('merchants', 'username')->ignore($merchant?->id),
             ],
             'portal_password' => ['nullable', Password::min(10)->letters()->numbers()],
+            'telegram_chat' => ['nullable', 'string', 'max:64'],
+            'telegram_chat_manual' => ['nullable', 'string', 'max:120'],
         ], [
             'username.required_if' => 'A portal username is required when the portal login is enabled.',
         ]);
 
-        $attributes = collect($data)->except(['username', 'portal_password', 'payin_ip_allowlist', 'payout_ip_allowlist'])->all() + [
+        $attributes = collect($data)->except(['username', 'portal_password', 'payin_ip_allowlist', 'payout_ip_allowlist', 'telegram_chat', 'telegram_chat_manual'])->all() + [
             'username' => isset($data['username']) ? Str::lower($data['username']) : null,
             'payin_ip_allowlist' => IpAllowlist::normalise($data['payin_ip_allowlist'] ?? null),
             'payout_ip_allowlist' => IpAllowlist::normalise($data['payout_ip_allowlist'] ?? null),

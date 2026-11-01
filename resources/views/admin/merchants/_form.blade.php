@@ -83,3 +83,46 @@
         </div>
     </div>
 </fieldset>
+
+<fieldset class="fieldset">
+    <legend>Telegram notifications (optional)</legend>
+    @if (! ($telegramConfigured ?? false))
+        <p class="hint mt-0">The Telegram bot is not set up yet. Configure it in
+            <a href="{{ route('admin.settings.edit', 'telegram') }}">Settings &rarr; Telegram</a> to attach a group here.</p>
+    @else
+        @php
+            $currentChat = (string) old('telegram_chat', $merchant->telegram_chat_id);
+            $knownIds = collect($telegramChats ?? [])->map(fn ($c) => (string) $c->chat_id)->all();
+            $showCurrentOption = $currentChat !== '' && ! in_array($currentChat, $knownIds, true);
+            $connectedMeta = $merchant->isTelegramLinked()
+                ? 'Connected'
+                    .($merchant->telegram_linked_at ? ' '.$merchant->telegram_linked_at->timezone('Asia/Karachi')->format('d M Y, H:i') : '')
+                    .($merchant->telegram_username ? ' · @'.$merchant->telegram_username : '')
+                    .'. Choose "Not connected" to disconnect.'
+                : null;
+        @endphp
+        <p class="hint mt-0">Attach a Telegram group/channel so this merchant's payment, callback and withdrawal
+            alerts post there. Add the bot to the group (as <strong>admin</strong> for a channel) and send any
+            message there once &mdash; it then appears in the list below. Optional: leave &ldquo;Not connected&rdquo;.</p>
+        <div class="form-row">
+            <label for="telegram_chat">Telegram group / channel</label>
+            <select id="telegram_chat" name="telegram_chat">
+                <option value="">&mdash; Not connected &mdash;</option>
+                @foreach (($telegramChats ?? []) as $chat)
+                    <option value="{{ $chat->chat_id }}" @selected($currentChat === (string) $chat->chat_id)>{{ $chat->title ?: $chat->chat_id }} ({{ $chat->type }})</option>
+                @endforeach
+                @if ($showCurrentOption)
+                    <option value="{{ $currentChat }}" selected>Currently connected ({{ $merchant->telegram_chat_type ?: 'chat' }})</option>
+                @endif
+            </select>
+            @if ($connectedMeta)
+                <div class="hint">{{ $connectedMeta }}</div>
+            @endif
+        </div>
+        <div class="form-row">
+            <label for="telegram_chat_manual">&hellip;or enter a username / chat id</label>
+            <input id="telegram_chat_manual" type="text" name="telegram_chat_manual" value="{{ old('telegram_chat_manual') }}" placeholder="&#64;mygroup or -1001234567890">
+            <div class="hint">Optional. Overrides the list above. The bot must already be in that chat.</div>
+        </div>
+    @endif
+</fieldset>

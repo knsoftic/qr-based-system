@@ -85,6 +85,17 @@ class TelegramClient
     }
 
     /**
+     * Look up a chat by numeric id or @username. Succeeds only when the bot is
+     * a member of that chat.
+     *
+     * @return array{ok: bool, result?: array, description?: string}
+     */
+    public function getChat(string $chatId): array
+    {
+        return $this->call('getChat', ['chat_id' => $chatId]);
+    }
+
+    /**
      * @return array{ok: bool, result?: mixed, description?: string}
      */
     private function call(string $method, array $params = []): array

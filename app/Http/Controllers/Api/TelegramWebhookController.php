@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Telegram\CommandRouter;
+use App\Telegram\TelegramChatRecorder;
 use App\Telegram\TelegramConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class TelegramWebhookController extends Controller
 {
     public function __construct(
         private readonly CommandRouter $router,
+        private readonly TelegramChatRecorder $recorder,
         private readonly TelegramConfig $config,
     ) {}
 
@@ -30,7 +32,9 @@ class TelegramWebhookController extends Controller
             abort(404);
         }
 
-        $this->router->handle($request->all());
+        $update = $request->all();
+        $this->recorder->record($update);
+        $this->router->handle($update);
 
         return response()->json(['ok' => true]);
     }

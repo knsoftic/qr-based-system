@@ -3,6 +3,7 @@
 namespace App\Telegram;
 
 use App\Models\Merchant;
+use App\Models\TelegramChat;
 use App\Models\TelegramLinkToken;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -115,5 +116,74 @@ class LinkService
     {
         return Merchant::query()->where('telegram_chat_id', $chatId)->first()
             ?? User::query()->where('telegram_chat_id', $chatId)->first();
+    }
+
+    /**
+     * Admin attaches (or changes / clears) a merchant's Telegram chat from the
+     * merchant form. $manual (an @username or chat id) overrides $selected.
+     *
+     * @return array{ok: bool, message: ?string}
+     */
+    public function attachFromAdmin(Model $owner, ?string $selected, ?string $manual): array
+    {
+        $target = trim((string) ($manual ?: $selected ?: ''));
+
+        if ($target === '') {
+            if ($owner->isTelegramLinked()) {
+                $this->unbind($owner);
+
+                return ['ok' => true, 'message' => 'Telegram disconnected from this merchant.'];
+            }
+
+            return ['ok' => true, 'message' => null];
+        }
+
+        $chat = $this->resolveChat($target);
+        if (! $chat) {
+            return ['ok' => false, 'message' => 'Could not reach that Telegram chat. Add the bot to the group (as admin for a channel), send a message there once, then try again.'];
+        }
+
+        $chatId = (string) $chat['id'];
+        if ($owner->telegram_chat_id === $chatId) {
+            return ['ok' => true, 'message' => null]; // already connected to this chat
+        }
+
+        $this->bind($owner, $chatId, $chat['type'] ?? null, $chat['username'] ?? null);
+
+        app(TelegramClient::class)->sendMessage(
+            $chatId,
+            '✅ This chat is now connected to <b>'.e($owner->telegramName()).'</b> for payment notifications.',
+        );
+
+        return ['ok' => true, 'message' => 'Telegram connected: '.($chat['title'] ?? $chatId).'.'];
+    }
+
+    /**
+     * Resolve a chat id / @username to its details via the bot. Falls back to a
+     * previously recorded chat when the lookup is unavailable.
+     *
+     * @return array{id: int|string, type: ?string, title: ?string, username: ?string}|null
+     */
+    private function resolveChat(string $target): ?array
+    {
+        $result = app(TelegramClient::class)->getChat($target);
+
+        if (($result['ok'] ?? false) && isset($result['result']['id'])) {
+            $r = $result['result'];
+
+            return [
+                'id' => $r['id'],
+                'type' => $r['type'] ?? null,
+                'title' => $r['title'] ?? ($r['username'] ?? null),
+                'username' => $r['username'] ?? null,
+            ];
+        }
+
+        $row = TelegramChat::query()->where('chat_id', $target)->first();
+        if ($row) {
+            return ['id' => $row->chat_id, 'type' => $row->type, 'title' => $row->title, 'username' => $row->username];
+        }
+
+        return null;
     }
 }
