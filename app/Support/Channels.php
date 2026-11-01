@@ -15,9 +15,7 @@ use Illuminate\Support\Collection;
  */
 class Channels
 {
-    public function __construct(private readonly Settings $settings)
-    {
-    }
+    public function __construct(private readonly Settings $settings) {}
 
     /**
      * Channel names currently in maintenance (as stored).
@@ -72,21 +70,31 @@ class Channels
     }
 
     /**
-     * Distinct channels across accounts, with counts and maintenance state.
+     * Distinct channels across accounts, with counts and status. A channel is
+     * "working" when at least one of its accounts can still take a payment
+     * (active, decoded, not in manual maintenance and within its daily / monthly
+     * limit); it is effectively down when every account is unavailable. The
+     * "maintenance" flag is the manual on/off toggle (drives the admin button).
      *
-     * @return Collection<int, array{name: string, total: int, active: int, maintenance: bool}>
+     * @return Collection<int, array{name: string, total: int, active: int, usable: int, working: bool, maintenance: bool}>
      */
     public function overview(): Collection
     {
-        return PaymentAccount::query()->get(['id', 'channel', 'is_active'])
+        return PaymentAccount::query()->get()
             ->filter(fn (PaymentAccount $a) => filled($a->channel))
             ->groupBy(fn (PaymentAccount $a) => trim((string) $a->channel))
-            ->map(fn (Collection $group, string $name) => [
-                'name' => $name,
-                'total' => $group->count(),
-                'active' => $group->where('is_active', true)->count(),
-                'maintenance' => $this->inMaintenance($name),
-            ])
+            ->map(function (Collection $group, string $name) {
+                $usable = $group->reject(fn (PaymentAccount $a) => $a->inMaintenance())->count();
+
+                return [
+                    'name' => $name,
+                    'total' => $group->count(),
+                    'active' => $group->where('is_active', true)->count(),
+                    'usable' => $usable,
+                    'working' => $usable > 0,
+                    'maintenance' => $this->inMaintenance($name),
+                ];
+            })
             ->sortKeys()
             ->values();
     }

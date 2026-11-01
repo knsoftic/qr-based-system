@@ -35,8 +35,10 @@
                             <td>
                                 @if ($ch['maintenance'])
                                     <span class="badge badge--warning">In maintenance</span>
+                                @elseif ($ch['working'])
+                                    <span class="badge badge--active">Working ({{ $ch['usable'] }}/{{ $ch['total'] }})</span>
                                 @else
-                                    <span class="badge badge--active">Live</span>
+                                    <span class="badge badge--inactive">No capacity</span>
                                 @endif
                             </td>
                             <td class="text-right">

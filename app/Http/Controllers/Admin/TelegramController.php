@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Support\Audit;
+use App\Telegram\CommandRouter;
 use App\Telegram\TelegramClient;
 use App\Telegram\TelegramConfig;
 use Illuminate\Http\RedirectResponse;
@@ -56,10 +57,15 @@ class TelegramController extends Controller
         $result = $client->setWebhook($url, $secret);
         $ok = (bool) ($result['ok'] ?? false);
 
+        // Also register the "/" command menu so clients show it.
+        if ($ok) {
+            $client->setMyCommands(CommandRouter::menu());
+        }
+
         Audit::log('telegram.webhook_set', null, [], ['ok' => $ok]);
 
         return $this->back($ok ? 'success' : 'error', $ok
-            ? 'Webhook registered with Telegram.'
+            ? 'Webhook registered and the command menu set.'
             : 'Telegram rejected the webhook: '.($result['description'] ?? 'unknown error.'));
     }
 

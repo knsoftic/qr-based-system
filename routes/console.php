@@ -8,6 +8,7 @@ use App\Models\PaymentAccount;
 use App\Models\User;
 use App\Payments\CallbackDispatcher;
 use App\Payments\PaymentService;
+use App\Telegram\CommandRouter;
 use App\Telegram\TelegramClient;
 use App\Telegram\TelegramConfig;
 use Illuminate\Support\Carbon;
@@ -130,7 +131,8 @@ Artisan::command('telegram:set-webhook {--delete : Remove the webhook instead of
     $result = $client->setWebhook($url, $secret);
 
     if ($result['ok'] ?? false) {
-        $this->info('Webhook registered: '.$url);
+        $client->setMyCommands(CommandRouter::menu());
+        $this->info('Webhook registered and command menu set: '.$url);
 
         return 0;
     }
@@ -139,6 +141,20 @@ Artisan::command('telegram:set-webhook {--delete : Remove the webhook instead of
 
     return 1;
 })->purpose('Register (or remove with --delete) the Telegram bot webhook');
+
+Artisan::command('telegram:set-commands', function (TelegramClient $client) {
+    if (! $client->configured()) {
+        $this->error('No bot token set (admin Settings → Telegram, or TELEGRAM_BOT_TOKEN in .env).');
+
+        return 1;
+    }
+
+    $result = $client->setMyCommands(CommandRouter::menu());
+    $ok = (bool) ($result['ok'] ?? false);
+    $this->line($ok ? 'Command menu set.' : 'Failed: '.($result['description'] ?? 'unknown error.'));
+
+    return $ok ? 0 : 1;
+})->purpose('Register the bot "/" command menu with Telegram');
 
 Artisan::command('telegram:test {chat : Telegram chat id to message}', function (string $chat, TelegramClient $client) {
     if (! $client->configured()) {

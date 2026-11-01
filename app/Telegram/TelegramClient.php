@@ -78,6 +78,17 @@ class TelegramClient
         return $this->call('deleteWebhook', ['drop_pending_updates' => false]);
     }
 
+    /**
+     * Register the "/" command menu shown in Telegram clients.
+     *
+     * @param  list<array{command: string, description: string}>  $commands
+     * @return array{ok: bool, description?: string}
+     */
+    public function setMyCommands(array $commands): array
+    {
+        return $this->call('setMyCommands', ['commands' => $commands]);
+    }
+
     /** @return array{ok: bool, result?: array, description?: string} */
     public function getMe(): array
     {

@@ -7,6 +7,8 @@ use App\Models\Merchant;
 use App\Models\Payment;
 use App\Models\Payout;
 use App\Models\User;
+use App\Payments\PayInTester;
+use App\Payments\PaymentService;
 use App\Support\Channels;
 use App\Support\Settings;
 use App\Support\SettlementService;
@@ -71,6 +73,8 @@ class CommandRouter
             'help', 'menu' => $this->help($owner),
             'balance' => $this->balance($owner),
             'health' => $this->health($owner),
+            'pay', 'testpay' => $this->testPay($owner, $arg),
+            'order', 'status' => $this->orderStatus($owner, $arg),
             'txns', 'transactions' => $this->txns($owner),
             'payouts' => $this->payouts($owner),
             'channels' => $this->channelStatus(),
@@ -120,18 +124,120 @@ class CommandRouter
 
     private function help(Model $owner): string
     {
-        $lines = [
-            '<b>Available commands</b>',
-            '/balance — your balance'.($owner instanceof User ? ' & commission this month' : ''),
-            '/health — account & gateway status',
-            '/txns — recent pay-in transactions',
-            '/payouts — recent withdrawals',
-            '/channels — payment-channel status',
-            '/id — show this chat\'s ID',
-            '/unlink — disconnect this chat',
-        ];
+        $lines = ['<b>Available commands</b>'];
+        $lines[] = '/balance — your balance'.($owner instanceof User ? ' & commission this month' : '');
+        if ($owner instanceof Merchant) {
+            $lines[] = '/pay &lt;amount&gt; — create a test order (e.g. /pay 500)';
+        }
+        $lines[] = '/order &lt;id&gt; — order status &amp; callback';
+        $lines[] = '/txns — recent pay-in transactions';
+        $lines[] = '/payouts — recent withdrawals';
+        $lines[] = '/channels — payment-channel status';
+        $lines[] = '/health — account &amp; gateway status';
+        $lines[] = '/id — show this chat\'s ID';
+        $lines[] = '/unlink — disconnect this chat';
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * The command list shown as the bot's "/" menu (Telegram setMyCommands).
+     *
+     * @return list<array{command: string, description: string}>
+     */
+    public static function menu(): array
+    {
+        return [
+            ['command' => 'balance', 'description' => 'Your balance'],
+            ['command' => 'pay', 'description' => 'Create a test order, e.g. /pay 500'],
+            ['command' => 'order', 'description' => 'Order status & callback, e.g. /order ORD-123'],
+            ['command' => 'txns', 'description' => 'Recent pay-in transactions'],
+            ['command' => 'payouts', 'description' => 'Recent withdrawals'],
+            ['command' => 'channels', 'description' => 'Payment-channel status'],
+            ['command' => 'health', 'description' => 'Account & gateway status'],
+            ['command' => 'id', 'description' => "Show this chat's ID"],
+            ['command' => 'help', 'description' => 'Show all commands'],
+            ['command' => 'unlink', 'description' => 'Disconnect this chat'],
+        ];
+    }
+
+    /**
+     * /pay <amount> — create a real test pay-in for the merchant and reply with
+     * the checkout link. The payer enters their mobile number on that page.
+     */
+    private function testPay(Model $owner, ?string $arg): string
+    {
+        if (! $owner instanceof Merchant) {
+            return 'Only a merchant can create a test order.';
+        }
+
+        $amount = trim((string) $arg);
+        if ($amount === '' || ! is_numeric($amount) || (float) $amount <= 0) {
+            return 'Usage: <code>/pay &lt;amount&gt;</code>  e.g. <code>/pay 500</code>';
+        }
+
+        $result = app(PayInTester::class)->run($owner, $amount, 'telegram');
+
+        if (! ($result['ok'] ?? false)) {
+            $error = $result['response']['error']['message'] ?? ('HTTP '.($result['status'] ?? '?'));
+
+            return '⚠️ Could not create the order: '.e($error);
+        }
+
+        $data = $result['response']['data'];
+        $link = $data['short_url'] ?: $data['checkout_url'];
+
+        return "🧾 <b>Test order created</b>\n"
+            .'Amount: <b>'.Format::money($data['amount'])."</b>\n"
+            .'Order: <code>'.e($data['order_id'])."</code>\n\n"
+            ."Pay / test here:\n".e($link)."\n\n"
+            .'Check status: <code>/order '.e($data['order_id']).'</code>'
+            ."\n<i>Real request — paying moves real money.</i>";
+    }
+
+    /**
+     * /order <id> — status, amount, verification and last callback for one of
+     * the owner's orders (by order id, payment id or transaction id).
+     */
+    private function orderStatus(Model $owner, ?string $arg): string
+    {
+        $id = trim((string) $arg);
+        if ($id === '') {
+            return 'Usage: <code>/order &lt;order id&gt;</code>';
+        }
+
+        $base = $owner instanceof Merchant
+            ? $owner->payments()
+            : Payment::query()->whereIn('merchant_id', $this->downlineIds($owner));
+
+        $payment = $base
+            ->where(fn ($q) => $q->where('order_id', $id)->orWhere('payment_id', $id)->orWhere('transaction_id', $id))
+            ->latest('id')
+            ->first();
+
+        if (! $payment) {
+            return 'No order found for <code>'.e($id).'</code>.';
+        }
+
+        app(PaymentService::class)->expireIfLapsed($payment);
+
+        $last = $payment->callbackDeliveries()->latest('id')->first();
+        $callback = $last
+            ? ($last->success ? 'delivered (HTTP '.$last->response_code.')' : 'failed ('.($last->error ?: 'HTTP '.$last->response_code).')')
+            : 'not sent';
+
+        $text = '🧾 <b>Order</b> <code>'.e($payment->order_id)."</code>\n"
+            .'Status: <b>'.$payment->status->label()."</b>\n"
+            .'Amount: '.Format::money($payment->amount, $payment->currency)."\n"
+            .($payment->paid_at ? 'Paid: '.Format::dt($payment->paid_at)."\n" : '')
+            .'Callback: '.e($callback)."\n"
+            .'Txn: <code>'.e($payment->transaction_id).'</code>';
+
+        if ($payment->isPending() && $payment->shortUrl()) {
+            $text .= "\nPay: ".e($payment->shortUrl());
+        }
+
+        return $text;
     }
 
     private function balance(Model $owner): string
@@ -166,8 +272,8 @@ class CommandRouter
     {
         $payinOn = (bool) $this->settings->get('payin.enabled');
         $channels = $this->channels->overview();
-        $maintenance = $channels->where('maintenance', true)->count();
-        $working = $channels->count() - $maintenance;
+        $working = $channels->where('working', true)->count();
+        $maintenance = $channels->count() - $working;
 
         if ($owner instanceof Merchant) {
             $failures = CallbackDelivery::query()
@@ -243,9 +349,12 @@ class CommandRouter
 
         $lines = ['📡 <b>Payment channels</b>'];
         foreach ($channels as $c) {
-            $lines[] = $c['maintenance']
-                ? '🛠️ '.e($c['name']).' — in maintenance'
-                : '✅ '.e($c['name']).' — '.$c['active'].' active';
+            if ($c['working']) {
+                $lines[] = '✅ '.e($c['name']).' — working ('.$c['usable'].'/'.$c['total'].' accounts ready)';
+            } else {
+                $reason = $c['maintenance'] ? 'maintenance' : 'no capacity (limits used / disabled)';
+                $lines[] = '🛠️ '.e($c['name']).' — '.$reason;
+            }
         }
 
         return implode("\n", $lines);

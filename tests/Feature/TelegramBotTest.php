@@ -6,6 +6,7 @@ use App\Jobs\SendTelegramMessage;
 use App\Models\CallbackDelivery;
 use App\Models\Payment;
 use App\Models\TelegramChat;
+use App\Support\Channels;
 use App\Telegram\LinkService;
 use App\Telegram\TelegramConfig;
 use App\Telegram\TelegramNotifier;
@@ -243,6 +244,71 @@ class TelegramBotTest extends TestCase
 
         $this->postJson('/api/telegram/webhook/'.self::SECRET, $this->update('/help'),
             ['X-Telegram-Bot-Api-Secret-Token' => self::SECRET])->assertNotFound();
+    }
+
+    public function test_pay_command_creates_a_test_order(): void
+    {
+        [$merchant] = $this->makeMerchant();
+        $this->makeAccount();
+        app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
+
+        $this->webhook($this->update('/pay 500'))->assertOk();
+
+        $this->assertSame(1, Payment::query()->where('merchant_id', $merchant->id)->count());
+        $this->assertSentText('Test order created');
+    }
+
+    public function test_pay_command_rejects_a_bad_amount(): void
+    {
+        [$merchant] = $this->makeMerchant();
+        app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
+
+        $this->webhook($this->update('/pay abc'))->assertOk();
+
+        $this->assertSame(0, Payment::query()->where('merchant_id', $merchant->id)->count());
+        $this->assertSentText('Usage');
+    }
+
+    public function test_order_command_shows_status(): void
+    {
+        [$merchant, $secret] = $this->makeMerchant();
+        $this->makeAccount();
+        $this->createPayment($merchant, $secret, ['order_id' => 'ORD-XYZ'])->assertCreated();
+        app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
+
+        $this->webhook($this->update('/order ORD-XYZ'))->assertOk();
+
+        $this->assertSentText('ORD-XYZ');
+        $this->assertSentText('Pending');
+    }
+
+    public function test_channels_command_shows_a_working_channel(): void
+    {
+        [$merchant] = $this->makeMerchant();
+        app(LinkService::class)->bind($merchant, '555', 'private', 'tester');
+        $this->makeAccount('PK00DEMO0000001234567890', ['channel' => 'easypaisa']);
+
+        $this->webhook($this->update('/channels'))->assertOk();
+
+        $this->assertSentText('working');
+    }
+
+    public function test_a_channel_with_all_limits_used_is_not_working(): void
+    {
+        $account = $this->makeAccount('PK00DEMO0000001234567890', ['channel' => 'easypaisa', 'daily_limit' => 100]);
+        [$merchant] = $this->makeMerchant();
+
+        $payment = $merchant->payments()->create([
+            'payment_id' => 'pay_lim', 'transaction_id' => 'TXNLIM', 'payment_account_id' => $account->id,
+            'order_id' => 'LIM-1', 'amount' => 100, 'currency' => 'PKR', 'fee_amount' => 0, 'net_amount' => 100,
+            'status' => 'paid', 'qr_payload' => 'x', 'idempotency_key' => 'lim', 'request_hash' => hash('sha256', 'lim'),
+            'expires_at' => now()->addMinutes(5),
+        ]);
+        $payment->forceFill(['paid_at' => now()])->save();
+
+        $channel = app(Channels::class)->overview()->firstWhere('name', 'easypaisa');
+        $this->assertFalse($channel['working']);
+        $this->assertSame(0, $channel['usable']);
     }
 
     public function test_the_id_command_returns_the_chat_id(): void
