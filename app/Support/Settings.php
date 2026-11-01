@@ -57,27 +57,28 @@ class Settings
             'checkout.primary_color' => '#6366f1',
             'checkout.accent_color' => '#8b5cf6',
 
-            'checkout.tagline' => 'Raast QR کے ذریعے محفوظ ادائیگی',
-            'checkout.step1_title' => 'پہلا مرحلہ — وہ موبائل نمبر درج کریں جس سے آپ ادائیگی کریں گے',
-            'checkout.step1_desc' => 'اُسی اکاؤنٹ کا موبائل نمبر لکھیں جس سے آپ یہ رقم بھیجیں گے۔ ہم اسی سے آپ کی ادائیگی خود بخود تصدیق کرتے ہیں۔ نمبر درج کرنے کے بعد QR کوڈ ظاہر ہوگا۔',
-            'checkout.step1_button' => 'QR کوڈ دکھائیں',
-            'checkout.step2_hint' => 'دوسرا مرحلہ — یہ QR اسکین کریں اور ادائیگی کریں',
-            'checkout.steps' => "جس نمبر کا آپ نے اندراج کیا اُس پر اپنی بینکنگ یا والٹ ایپ کھولیں۔\nیہ QR کوڈ اسکین کریں۔ رقم خود بخود بھر جائے گی۔\nادائیگی کی تصدیق کریں۔ یہ صفحہ خود اپ ڈیٹ ہو جائے گا۔",
-            'checkout.paid_title' => 'ادائیگی موصول ہو گئی',
-            'checkout.paid_text' => 'شکریہ۔ آپ کی ادائیگی کی تصدیق ہو گئی ہے۔',
-            'checkout.expired_title' => 'QR کوڈ کی میعاد ختم',
-            'checkout.expired_text' => 'یہ ادائیگی کی درخواست اب کارآمد نہیں۔ پرانے QR سے ادائیگی نہ کریں۔ اسٹور پر واپس جا کر نئی ادائیگی شروع کریں۔',
-            'checkout.failed_title' => 'ادائیگی مکمل نہیں ہوئی',
-            'checkout.failed_text' => 'یہ ادائیگی مکمل نہیں ہوئی۔ براہِ کرم اسٹور پر واپس جا کر دوبارہ کوشش کریں۔',
-            'checkout.footer' => 'محفوظ Raast QR ادائیگی',
-            'checkout.invalid_code_msg' => 'اس موبائل نمبر کا کوڈ قبول نہیں کیا جاتا۔ براہِ کرم کسی اور کمپنی کا نمبر استعمال کریں۔',
+            // Short, bilingual (Urdu · English) copy — kept compact on purpose.
+            'checkout.tagline' => 'محفوظ ادائیگی · Secure Raast QR',
+            'checkout.step1_title' => 'ادائیگی والا موبائل نمبر درج کریں · Enter the number you will pay from',
+            'checkout.step1_desc' => 'اُسی نمبر سے جس سے رقم بھیجیں گے — خودبخود تصدیق ہو جائے گی۔ · We verify it automatically.',
+            'checkout.step1_button' => 'QR دکھائیں · Show QR',
+            'checkout.step2_hint' => 'یہ QR اسکین کر کے ادائیگی کریں · Scan & pay',
+            'checkout.steps' => "ایپ کھولیں · Open your app\nQR اسکین کریں · Scan the QR\nادائیگی کی تصدیق کریں · Confirm",
+            'checkout.paid_title' => 'ادائیگی موصول · Payment received',
+            'checkout.paid_text' => 'شکریہ، آپ کی ادائیگی ہو گئی۔ · Thank you, payment confirmed.',
+            'checkout.expired_title' => 'میعاد ختم · QR expired',
+            'checkout.expired_text' => 'یہ QR اب کارآمد نہیں — اسٹور پر نئی ادائیگی شروع کریں۔ · Expired — start again.',
+            'checkout.failed_title' => 'ادائیگی مکمل نہیں · Not completed',
+            'checkout.failed_text' => 'ادائیگی مکمل نہیں ہوئی — دوبارہ کوشش کریں۔ · Please try again.',
+            'checkout.footer' => 'محفوظ Raast QR · Secure payment',
+            'checkout.invalid_code_msg' => 'اس نمبر کا کوڈ قبول نہیں — دوسرا نمبر استعمال کریں۔ · Operator not accepted.',
 
             // Short/anonymous checkout link base. Empty = this app's URL; set a
             // neutral domain (pointed at this server) to hide the gateway.
             'checkout.short_base_url' => null,
 
             'checkout.telegram' => null,               // @username or t.me link
-            'checkout.telegram_label' => 'ٹیلیگرام پر رابطہ کریں',
+            'checkout.telegram_label' => 'ٹیلیگرام · Telegram',
             'checkout.button_label' => null,
             'checkout.button_url' => null,
 

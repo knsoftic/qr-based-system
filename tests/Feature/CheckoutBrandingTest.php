@@ -36,7 +36,8 @@ class CheckoutBrandingTest extends TestCase
             ->assertSee('dir="rtl"', false)
             ->assertSee('lang="ur"', false)
             ->assertSee('Noto+Nastaliq+Urdu', false)
-            ->assertSee('Raast QR کے ذریعے محفوظ ادائیگی'); // default tagline
+            ->assertSee('محفوظ ادائیگی')   // default tagline (Urdu part)
+            ->assertSee('Secure Raast QR'); // default tagline (English part)
     }
 
     public function test_admin_can_save_checkout_branding(): void
