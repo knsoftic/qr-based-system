@@ -245,6 +245,16 @@ class TelegramBotTest extends TestCase
             ['X-Telegram-Bot-Api-Secret-Token' => self::SECRET])->assertNotFound();
     }
 
+    public function test_the_id_command_returns_the_chat_id(): void
+    {
+        $update = $this->groupUpdate(-5005, 'Merchant X');
+        $update['message']['text'] = '/id';
+
+        $this->webhook($update)->assertOk();
+
+        $this->assertSentText('-5005');
+    }
+
     public function test_the_bot_remembers_group_chats_it_sees(): void
     {
         $this->webhook($this->groupUpdate(-2002, 'Ops Group'))->assertOk();

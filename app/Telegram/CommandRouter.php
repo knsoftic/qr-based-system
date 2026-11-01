@@ -52,6 +52,14 @@ class CommandRouter
             return;
         }
 
+        // Works in any chat (even before linking): used by the admin to copy a
+        // group's / channel's id into the merchant's Telegram field.
+        if ($command === 'id' || $command === 'chatid') {
+            $this->reply($chatId, $this->chatIdInfo($chatId, $chat));
+
+            return;
+        }
+
         $owner = $this->links->ownerByChatId($chatId);
         if (! $owner) {
             $this->reply($chatId, $this->notLinked());
@@ -119,6 +127,7 @@ class CommandRouter
             '/txns — recent pay-in transactions',
             '/payouts — recent withdrawals',
             '/channels — payment-channel status',
+            '/id — show this chat\'s ID',
             '/unlink — disconnect this chat',
         ];
 
@@ -247,6 +256,19 @@ class CommandRouter
         $this->links->unbind($owner);
 
         return "🔌 This chat has been disconnected. You will no longer receive notifications here.\nReconnect any time from your portal.";
+    }
+
+    private function chatIdInfo(string $chatId, array $chat): string
+    {
+        $type = (string) ($chat['type'] ?? 'chat');
+        $title = $chat['title'] ?? ($chat['username'] ?? null);
+
+        $text = "🆔 <b>Chat ID</b>\n<code>".e($chatId)."</code>\nType: ".e($type);
+        if ($title) {
+            $text .= "\nName: ".e($title);
+        }
+
+        return $text."\n\nCopy this ID into the merchant's Telegram field in the admin panel to connect this chat.";
     }
 
     private function notLinked(): string
