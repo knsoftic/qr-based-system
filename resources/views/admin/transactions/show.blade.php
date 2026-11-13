@@ -55,7 +55,7 @@
                         <dt>Verifying SMS</dt>
                         <dd>
                             <a href="{{ route('admin.sms.index', ['sender' => $payment->smsMessage->sender]) }}">from {{ $payment->smsMessage->sender }}</a>,
-                            {{ $payment->smsMessage->received_at->timezone('Asia/Karachi')->format('d M, H:i:s') }}
+                            {{ $payment->smsMessage->received_at->timezone('Asia/Karachi')->format('d M, h:i:s A') }}
                             @if ($payment->smsMessage->match_score) · {{ $payment->smsMessage->match_score }}% match @endif
                             <div class="muted" style="font-size: .8rem; white-space: pre-line">{{ \Illuminate\Support\Str::limit($payment->smsMessage->body, 160) }}</div>
                         </dd>

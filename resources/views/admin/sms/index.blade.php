@@ -63,7 +63,7 @@
                 @forelse ($messages as $sms)
                     <tr>
                         <td class="nowrap">
-                            {{ $sms->received_at->timezone('Asia/Karachi')->format('d M, H:i:s') }}
+                            {{ $sms->received_at->timezone('Asia/Karachi')->format('d M, h:i:s A') }}
                             <div class="muted" style="font-size: .75rem">
                                 {{ $sms->device?->name }}@if ($sms->sim_slot !== null) · SIM {{ $sms->sim_slot + 1 }}@endif{{ $sms->sim_name ? ' ('.$sms->sim_name.')' : '' }}
                             </div>
