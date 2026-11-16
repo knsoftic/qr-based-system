@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Merchant;
 
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\SendPaymentCallback;
 use App\Models\Merchant;
 use App\Models\Payout;
+use App\Payments\CallbackDispatcher;
 use App\Payments\Exceptions\GatewayException;
 use App\Payments\PayInTester;
 use App\Payments\PaymentService;
@@ -20,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -132,7 +135,7 @@ class PortalController extends Controller
 
             $query->chunk(500, function ($rows) use ($out) {
                 foreach ($rows as $p) {
-                    fputcsv($out, array_map(fn ($v) => is_string($v) && preg_match('/^[=+\-@\t\r]/', $v) ? "'".$v : $v, [
+                    fputcsv($out, array_map([self::class, 'csvSafe'], [
                         $p->transaction_id, $p->payment_id, $p->order_id,
                         $p->amount, $p->fee_amount, $p->net_amount, $p->currency, $p->status->value,
                         $p->payer_phone ?: $p->claimed_phone,
@@ -370,6 +373,278 @@ class PortalController extends Controller
                 'age' => $age,
                 'fresh' => abs($age) <= (int) config('gateway.signature_tolerance'),
             ]);
+    }
+
+    /**
+     * One payment: amounts, verification, a customer-facing timeline and the
+     * callback deliveries. Gateway internals (account, IPs, SMS body, admin
+     * ids) are never shown to the merchant.
+     */
+    public function showPayment(Request $request, string $paymentId, PaymentService $payments): View
+    {
+        $merchant = $this->merchant($request);
+        $payment = $merchant->payments()->where('payment_id', $paymentId)->firstOrFail();
+        $payments->expireIfLapsed($payment);
+        $payment->load(['events', 'callbackDeliveries']);
+
+        return view('merchant.payment', [
+            'merchant' => $merchant,
+            'payment' => $payment,
+            'timeline' => $payment->events->map(fn ($e) => $this->timelineEntry($e))->all(),
+            'verifiedVia' => $this->actorLabel($payment->verified_by),
+            'canResend' => ! $payment->isPending() && (bool) app(CallbackDispatcher::class)->callbackUrl($payment),
+        ]);
+    }
+
+    public function resendCallback(Request $request, string $paymentId, CallbackDispatcher $dispatcher): RedirectResponse
+    {
+        $merchant = $this->merchant($request);
+        $payment = $merchant->payments()->where('payment_id', $paymentId)->firstOrFail();
+        $back = redirect()->route('merchant.payments.show', $payment->payment_id);
+
+        if ($payment->isPending()) {
+            return $back->with('error', 'This payment is still pending; the callback is sent when it completes.');
+        }
+        if (! $dispatcher->callbackUrl($payment)) {
+            return $back->with('error', 'No callback URL is set for this payment.');
+        }
+
+        SendPaymentCallback::dispatchSync($payment->id);
+        Audit::log('merchant.callback_resent', $payment, [], [], byAdmin: false);
+
+        $last = $payment->callbackDeliveries()->latest('id')->first();
+
+        return $back->with($last?->success ? 'success' : 'error', $last?->success
+            ? "Callback delivered (HTTP {$last->response_code})."
+            : 'Callback failed: '.($last?->error ?: 'HTTP '.$last?->response_code));
+    }
+
+    public function account(Request $request): View
+    {
+        return view('merchant.account', ['merchant' => $this->merchant($request)]);
+    }
+
+    /**
+     * The merchant changes its own portal password. Other open sessions are
+     * signed out; this one stays signed in.
+     */
+    public function updatePassword(Request $request): RedirectResponse
+    {
+        $merchant = $this->merchant($request);
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', 'different:current_password', Password::min(10)->letters()->numbers()],
+        ]);
+
+        if (! Hash::check($data['current_password'], $merchant->password)) {
+            throw ValidationException::withMessages(['current_password' => 'The current password is incorrect.']);
+        }
+
+        $merchant->password = $data['password'];
+        $merchant->revokePortalSessions();
+        $merchant->save();
+        $request->session()->put('merchant_session_version', $merchant->session_version);
+
+        Audit::log('merchant.portal_password_changed', $merchant, byAdmin: false);
+
+        return redirect()->route('merchant.account')->with('success', 'Password changed. Other devices were signed out.');
+    }
+
+    /**
+     * Monthly balance statement: opening balance, one row per Pakistan day
+     * (payments received, withdrawals held, withdrawals returned) and the
+     * closing balance. Uses the same formula as the available balance.
+     */
+    public function statement(Request $request): View
+    {
+        $merchant = $this->merchant($request);
+        $months = $this->statementMonths();
+        $month = $this->pickMonth($request, $months);
+        [$start, $end] = $this->monthRange($month);
+
+        $opening = $this->balanceBefore($merchant, $start);
+        $days = [];
+        $add = function (string $day, string $key, float $amount, int $count = 0) use (&$days) {
+            $days[$day] ??= ['payments' => 0, 'received' => 0.0, 'withdrawn' => 0.0, 'returned' => 0.0];
+            $days[$day][$key] += $amount;
+            $days[$day]['payments'] += $count;
+        };
+
+        foreach ($merchant->payments()->where('status', 'paid')->whereBetween('paid_at', [$start, $end])->select(['id', 'paid_at', 'net_amount'])->cursor() as $p) {
+            $add($p->paid_at->timezone('Asia/Karachi')->format('Y-m-d'), 'received', (float) $p->net_amount, 1);
+        }
+        foreach ($merchant->payouts()->whereBetween('created_at', [$start, $end])->get(['created_at', 'amount']) as $po) {
+            $add($po->created_at->timezone('Asia/Karachi')->format('Y-m-d'), 'withdrawn', (float) $po->amount);
+        }
+        foreach ($merchant->payouts()->where('status', 'rejected')->whereBetween('processed_at', [$start, $end])->get(['processed_at', 'amount']) as $po) {
+            $add($po->processed_at->timezone('Asia/Karachi')->format('Y-m-d'), 'returned', (float) $po->amount);
+        }
+        ksort($days);
+
+        $balance = $opening;
+        $rows = [];
+        foreach ($days as $day => $d) {
+            $balance = round($balance + $d['received'] - $d['withdrawn'] + $d['returned'], 2);
+            $rows[] = $d + ['date' => $day, 'closing' => $balance];
+        }
+
+        return view('merchant.statement', [
+            'merchant' => $merchant,
+            'months' => $months,
+            'month' => $month,
+            'opening' => $opening,
+            'closing' => $balance,
+            'rows' => $rows,
+            'totals' => [
+                'payments' => array_sum(array_column($rows, 'payments')),
+                'received' => array_sum(array_column($rows, 'received')),
+                'withdrawn' => array_sum(array_column($rows, 'withdrawn')),
+                'returned' => array_sum(array_column($rows, 'returned')),
+            ],
+        ]);
+    }
+
+    /** Line-by-line statement for a month with a running balance (CSV). */
+    public function exportStatement(Request $request): StreamedResponse
+    {
+        $merchant = $this->merchant($request);
+        $month = $this->pickMonth($request, $this->statementMonths());
+        [$start, $end] = $this->monthRange($month);
+        $opening = $this->balanceBefore($merchant, $start);
+
+        // Payout lines are few: build them up front, then merge them in time
+        // order with the (possibly many) payment lines streamed from the DB.
+        $payoutLines = collect();
+        foreach ($merchant->payouts()->whereBetween('created_at', [$start, $end])->get() as $po) {
+            $payoutLines->push(['at' => $po->created_at, 'type' => 'Withdrawal requested', 'ref' => $po->payout_ref, 'amount' => -(float) $po->amount]);
+        }
+        foreach ($merchant->payouts()->where('status', 'rejected')->whereBetween('processed_at', [$start, $end])->get() as $po) {
+            $payoutLines->push(['at' => $po->processed_at, 'type' => 'Withdrawal returned', 'ref' => $po->payout_ref, 'amount' => (float) $po->amount]);
+        }
+        $payoutLines = $payoutLines->sortBy(fn ($l) => $l['at']->getTimestamp())->values();
+
+        $payments = $merchant->payments()->where('status', 'paid')->whereBetween('paid_at', [$start, $end])
+            ->orderBy('paid_at')->orderBy('id')->select(['id', 'payment_id', 'order_id', 'paid_at', 'net_amount']);
+
+        Audit::log('merchant.statement_exported', $merchant, [], ['month' => $month], byAdmin: false);
+
+        return response()->streamDownload(function () use ($payments, $payoutLines, $opening) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date (PKT)', 'Type', 'Reference', 'Order', 'Credit', 'Debit', 'Balance']);
+            fputcsv($out, ['', 'Opening balance', '', '', '', '', number_format($opening, 2, '.', '')]);
+            $balance = $opening;
+            $i = 0;
+            $write = function (array $l) use ($out, &$balance) {
+                $balance = round($balance + $l['amount'], 2);
+                // Only the text columns can carry user input; numbers stay as-is
+                // so a negative balance is not mangled by the formula guard.
+                fputcsv($out, [
+                    $l['at']->timezone('Asia/Karachi')->format('Y-m-d h:i:s A'), $l['type'],
+                    self::csvSafe($l['ref']), self::csvSafe($l['order'] ?? ''),
+                    $l['amount'] > 0 ? number_format($l['amount'], 2, '.', '') : '',
+                    $l['amount'] < 0 ? number_format(-$l['amount'], 2, '.', '') : '',
+                    number_format($balance, 2, '.', ''),
+                ]);
+            };
+
+            foreach ($payments->cursor() as $p) {
+                while ($i < $payoutLines->count() && $payoutLines[$i]['at']->lte($p->paid_at)) {
+                    $write($payoutLines[$i++]);
+                }
+                $write(['at' => $p->paid_at, 'type' => 'Payment received', 'ref' => $p->payment_id, 'order' => $p->order_id, 'amount' => (float) $p->net_amount]);
+            }
+            while ($i < $payoutLines->count()) {
+                $write($payoutLines[$i++]);
+            }
+
+            fputcsv($out, ['', 'Closing balance', '', '', '', '', number_format($balance, 2, '.', '')]);
+            fclose($out);
+        }, 'statement-'.$month.'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /** Available balance at a moment: paid net − withdrawals requested + withdrawals returned. */
+    private function balanceBefore(Merchant $merchant, Carbon $at): float
+    {
+        $in = (float) $merchant->payments()->where('status', 'paid')->where('paid_at', '<', $at)->sum('net_amount');
+        $out = (float) $merchant->payouts()->where('created_at', '<', $at)->sum('amount');
+        $back = (float) $merchant->payouts()->where('status', 'rejected')->where('processed_at', '<', $at)->sum('amount');
+
+        return round($in - $out + $back, 2);
+    }
+
+    /** The last 12 Pakistan calendar months, newest first: "2026-11" => "November 2026". */
+    private function statementMonths(): array
+    {
+        $months = [];
+        $m = now('Asia/Karachi')->startOfMonth();
+        for ($i = 0; $i < 12; $i++) {
+            $months[$m->format('Y-m')] = $m->format('F Y');
+            $m = $m->subMonthNoOverflow();
+        }
+
+        return $months;
+    }
+
+    private function pickMonth(Request $request, array $months): string
+    {
+        $month = (string) $request->query('month');
+
+        return array_key_exists($month, $months) ? $month : (string) array_key_first($months);
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} month start/end in the app timezone */
+    private function monthRange(string $month): array
+    {
+        $start = Carbon::createFromFormat('Y-m-d', $month.'-01', 'Asia/Karachi')->startOfDay();
+        $tz = config('app.timezone');
+
+        return [$start->copy()->setTimezone($tz), $start->copy()->endOfMonth()->setTimezone($tz)];
+    }
+
+    /** @return array{label: string, note: ?string, from: ?string, to: ?string, at: \DateTimeInterface} */
+    private function timelineEntry($event): array
+    {
+        $note = null;
+        $label = match ($event->event) {
+            'created' => 'Payment created',
+            'checkout_viewed' => 'Customer opened the checkout',
+            'payer_number_entered' => 'Customer entered the pay-from number',
+            'status_changed' => match ($event->to_status) {
+                'paid' => 'Payment received',
+                'expired' => 'QR expired',
+                'failed' => 'Marked as failed',
+                'cancelled' => 'Cancelled',
+                default => 'Status changed',
+            },
+            default => ucfirst(str_replace('_', ' ', $event->event)),
+        };
+
+        if ($event->event === 'payer_number_entered') {
+            $note = $event->data['phone'] ?? null;
+        } elseif ($event->event === 'status_changed') {
+            $note = $this->actorLabel($event->actor).(! empty($event->data['late']) ? ' · late payment' : '');
+        }
+
+        return ['label' => $label, 'note' => $note, 'from' => $event->from_status, 'to' => $event->to_status, 'at' => $event->created_at];
+    }
+
+    /** Who acted, in merchant-friendly words (never an internal admin id). */
+    private function actorLabel(?string $actor): string
+    {
+        return match (true) {
+            $actor === null => '—',
+            $actor === 'sms' => 'Automatic (SMS)',
+            $actor === 'api' => 'Verifier API',
+            $actor === 'system' => 'Automatic',
+            str_starts_with($actor, 'admin') => 'Gateway admin',
+            default => ucfirst($actor),
+        };
+    }
+
+    /** Prevent spreadsheet formula injection in exported cells. */
+    public static function csvSafe(mixed $value): mixed
+    {
+        return is_string($value) && preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
     }
 
     private function merchant(Request $request): Merchant

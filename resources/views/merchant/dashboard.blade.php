@@ -180,7 +180,7 @@ Idempotency-Key: &lt;unique per order attempt&gt;   (POST only)</pre>
                 @forelse ($payments as $payment)
                     <tr>
                         <td>
-                            <span class="mono">{{ $payment->transaction_id }}</span>
+                            <a href="{{ route('merchant.payments.show', $payment->payment_id) }}" class="mono">{{ $payment->transaction_id }}</a>
                             <div class="muted mono" style="font-size: .75rem">{{ $payment->payment_id }}</div>
                         </td>
                         <td class="mono nowrap">{{ $payment->order_id }}</td>

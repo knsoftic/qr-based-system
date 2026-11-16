@@ -10,6 +10,7 @@ use App\Telegram\LinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\Concerns\GatewayHelpers;
 use Tests\TestCase;
 
@@ -404,5 +405,97 @@ class MerchantPortalTest extends TestCase
         $this->get(route('merchant.dashboard'))->assertOk()->assertSee('Orders · Today')->assertSee('View all 4');
         $this->get(route('merchant.dashboard', ['period' => 'all']))->assertOk()->assertSee('Orders · All time');
         $this->get(route('merchant.dashboard', ['period' => 'bogus']))->assertOk()->assertSee('Orders · Today');
+    }
+
+    public function test_payment_detail_shows_own_payment_only(): void
+    {
+        [$merchant, $secret] = $this->portalMerchant();
+        [$other, $otherSecret] = $this->makeMerchant(['name' => 'Other Shop']);
+        $this->makeAccount();
+        $this->createPayment($merchant, $secret, ['order_id' => 'DETAIL-1'])->assertCreated();
+        $this->createPayment($other, $otherSecret, ['order_id' => 'NOTMINE-1'])->assertCreated();
+        $mine = $merchant->payments()->firstOrFail();
+        $theirs = $other->payments()->firstOrFail();
+        $this->signIn();
+
+        $this->get(route('merchant.payments.show', $mine->payment_id))
+            ->assertOk()
+            ->assertSee('DETAIL-1')
+            ->assertSee('Payment created')
+            ->assertSee('Net to you')
+            ->assertDontSee($mine->account->name); // the gateway account is never shown
+
+        $this->get(route('merchant.payments.show', $theirs->payment_id))->assertNotFound();
+    }
+
+    public function test_the_merchant_can_resend_a_callback(): void
+    {
+        // The URL guard does a DNS lookup; this test is about resending, not the guard.
+        config(['gateway.allow_private_callbacks' => true]);
+        Http::fake(['shop.example.com/*' => Http::response('ok', 200)]);
+        [$merchant, $secret] = $this->portalMerchant();
+        $this->makeAccount();
+        $this->createPayment($merchant, $secret, ['order_id' => 'CB-1', 'callback_url' => 'https://shop.example.com/cb'])->assertCreated();
+        $payment = $merchant->payments()->firstOrFail();
+        $this->signIn();
+
+        // Still pending: nothing is sent.
+        $this->post(route('merchant.payments.callback', $payment->payment_id))->assertSessionHas('error');
+        $this->assertSame(0, $payment->callbackDeliveries()->count());
+
+        $payment->forceFill(['status' => 'paid', 'paid_at' => now()])->save();
+
+        $this->post(route('merchant.payments.callback', $payment->payment_id))
+            ->assertRedirect(route('merchant.payments.show', $payment->payment_id))
+            ->assertSessionHas('success');
+        $this->assertSame(1, $payment->callbackDeliveries()->where('success', true)->count());
+    }
+
+    public function test_the_merchant_changes_its_own_password(): void
+    {
+        $this->portalMerchant();
+        $this->signIn();
+
+        $this->put(route('merchant.account.password'), [
+            'current_password' => 'wrong-pass-1',
+            'password' => 'newpass12345', 'password_confirmation' => 'newpass12345',
+        ])->assertSessionHasErrors('current_password');
+
+        $this->put(route('merchant.account.password'), [
+            'current_password' => self::PASSWORD,
+            'password' => 'newpass12345', 'password_confirmation' => 'newpass12345',
+        ])->assertRedirect(route('merchant.account'))->assertSessionHas('success');
+
+        // This session stays signed in.
+        $this->get(route('merchant.dashboard'))->assertOk();
+
+        // The new password works, the old one does not.
+        $this->post(route('merchant.logout'));
+        $this->signIn('demostore', self::PASSWORD)->assertSessionHasErrors();
+        $this->signIn('demostore', 'newpass12345')->assertRedirect(route('merchant.dashboard'));
+    }
+
+    public function test_the_statement_closing_balance_matches_the_available_balance(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        $this->seedPayments($merchant, 3);              // 3 × net 98 = 294
+        $merchant->payouts()->create(['payout_ref' => 'PO1', 'method' => 'easypaisa', 'account_number' => '03001234567',
+            'amount' => 50, 'currency' => 'PKR', 'status' => 'pending']);
+        $rejected = $merchant->payouts()->create(['payout_ref' => 'PO2', 'method' => 'easypaisa', 'account_number' => '03001234567',
+            'amount' => 40, 'currency' => 'PKR', 'status' => 'rejected']);
+        $rejected->forceFill(['processed_at' => now()])->save();
+        $this->signIn();
+
+        $available = number_format($merchant->fresh()->availableBalance(), 2); // 294 − 50 = 244.00
+
+        $this->get(route('merchant.statement'))
+            ->assertOk()
+            ->assertSee('Closing balance')
+            ->assertSee($available);
+
+        $csv = $this->get(route('merchant.statement.export'))->assertOk()->streamedContent();
+        $this->assertStringContainsString('Payment received', $csv);
+        $this->assertStringContainsString('Withdrawal returned', $csv);
+        $this->assertStringContainsString('"Closing balance",,,,,'.number_format($merchant->fresh()->availableBalance(), 2, '.', ''), $csv);
     }
 }

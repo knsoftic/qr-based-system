@@ -17,7 +17,9 @@
         ['merchant.payments', 'Payments', 'transactions', request()->routeIs('merchant.payments*')],
         ['merchant.test', 'Test Pay-In', 'zap', request()->routeIs('merchant.test')],
         ['merchant.payouts', 'Withdraw (Pay-Out)', 'payout', request()->routeIs('merchant.payouts')],
+        ['merchant.statement', 'Statement', 'chart', request()->routeIs('merchant.statement*')],
         ['merchant.verify', 'Verify integration', 'check', request()->routeIs('merchant.verify')],
+        ['merchant.account', 'Account & security', 'lock', request()->routeIs('merchant.account*')],
     ];
 @endphp
 <div class="admin">
