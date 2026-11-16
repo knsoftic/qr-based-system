@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Payment;
+use App\Support\Settings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\GatewayHelpers;
 use Tests\TestCase;
@@ -15,7 +16,7 @@ class CheckoutPhoneTest extends TestCase
     {
         parent::setUp();
         // These tests assert the English copy; the checkout defaults to Urdu.
-        app(\App\Support\Settings::class)->set([
+        app(Settings::class)->set([
             'checkout.language' => 'en',
             'checkout.step1_title' => 'Enter the mobile number you will pay from',
             'checkout.step1_desc' => 'Type the mobile number of the account you will send this payment from.',
@@ -76,7 +77,9 @@ class CheckoutPhoneTest extends TestCase
         $this->get(route('checkout.show', $payment->payment_id))
             ->assertSee('class="qr-svg', false)
             ->assertDontSee('qr-frame is-hidden', false)
-            ->assertSee('Scan this QR and pay');
+            ->assertSee('Scan this QR and pay')
+            ->assertSee('Download QR')            // QR can be saved as an image
+            ->assertSee('id="qr-dl"', false);
     }
 
     public function test_an_invalid_number_is_rejected(): void

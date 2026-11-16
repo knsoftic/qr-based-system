@@ -42,7 +42,7 @@
                 </button>
             </form>
             <form method="POST" action="{{ route('admin.accounts.destroy', $account) }}" class="inline-form"
-                  onsubmit="return confirm('Delete account &quot;{{ $account->name }}&quot;? Past transactions are kept but it stops receiving new payments.')">
+                  data-confirm="Delete account “{{ $account->name }}”? Past transactions are kept but it stops receiving new payments.">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn btn--danger">Delete</button>

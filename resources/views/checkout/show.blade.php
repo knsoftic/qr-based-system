@@ -130,6 +130,13 @@
             border:1px solid var(--c-line);border-radius:18px;box-shadow:0 16px 34px -20px rgba(15,23,42,.5);}
         #qr-frame svg,#qr-frame img{width:100%;height:100%;display:block;}
         #qr-frame.is-hidden{display:none;}
+        .co-dl-wrap{text-align:center;margin-top:10px;}
+        .co-dl{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:1px solid var(--c-line);
+            border-radius:12px;background:#fff;color:var(--c-primary);font-weight:700;font-size:.82rem;cursor:pointer;
+            font-family:var(--sans);transition:background .15s,border-color .15s;}
+        .co-dl:hover{background:var(--c-soft);border-color:var(--c-primary);}
+        .co-dl .ur{color:var(--c-muted);font-weight:600;}
+        .co-dl svg{width:15px;height:15px;}
         .co-state{text-align:center;padding:14px 6px 4px;}
         .co-state-ic{width:62px;height:62px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:1.7rem;}
         .co-state h2{margin:0 0 4px;font-size:1.05rem;}
@@ -153,7 +160,8 @@
         .co-det-row+.co-det-row{border-top:1px solid var(--c-line);}
         .co-det-row .k{font-size:.82rem;}
         .co-det-row .k .en{color:var(--c-muted);margin-inline-start:.4em;font-size:.92em;}
-        .co-det-row .v{font-family:var(--sans);font-size:.82rem;color:#334155;text-align:end;word-break:break-all;}
+        .co-det-row{flex-wrap:wrap;}
+        .co-det-row .v{font-family:var(--sans);font-size:.82rem;color:#334155;text-align:end;white-space:nowrap;margin-inline-start:auto;}
 
         /* How-to steps */
         .co-how{margin:16px 0 2px;padding:0;list-style:none;counter-reset:s;}
@@ -249,6 +257,13 @@
             </div>
         </section>
 
+        <div class="co-dl-wrap" id="qr-dl-wrap" @if (! $payment->isPending() || $needsPhone) hidden @endif>
+            <button type="button" class="co-dl" id="qr-dl">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10m0 0l-4-4m4 4l4-4M4 17h12"/></svg>
+                {!! $pair('QR محفوظ کریں', 'Download QR') !!}
+            </button>
+        </div>
+
         <div class="co-state co-state--expired" id="state-expired" @if ($payment->status->value !== 'expired') hidden @endif>
             <div class="co-state-ic">⏱</div>
             <h2>{!! $bi($t('expired_title', 'میعاد ختم · QR expired')) !!}</h2>
@@ -334,6 +349,7 @@
         if (!pending) { $('qr-frame').innerHTML = ''; }
         $('timer').hidden = !pending;
         $('steps').hidden = !pending;
+        if ($('qr-dl-wrap')) { $('qr-dl-wrap').hidden = !pending; }
         $('state-expired').hidden = next !== 'expired';
         $('state-paid').hidden = next !== 'paid';
         $('state-failed').hidden = !(next === 'failed' || next === 'cancelled');
@@ -377,6 +393,41 @@
             })
             .catch(function () {});
     }
+
+    function downloadQr() {
+        var svg = $('qr-frame') && $('qr-frame').querySelector('svg');
+        if (!svg) { return; }
+        var size = 720, pad = 48;
+        var clone = svg.cloneNode(true);
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('width', size);
+        clone.setAttribute('height', size);
+        var url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
+        var img = new Image();
+        img.onload = function () {
+            var canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size + pad * 2;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, pad, pad, size, size);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(function (blob) {
+                if (!blob) { return; }
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'payment-qr-' + @json($payment->transaction_id) + '.png';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+            }, 'image/png');
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); };
+        img.src = url;
+    }
+
+    if ($('qr-dl')) { $('qr-dl').addEventListener('click', downloadQr); }
 
     if (status === 'pending') {
         tick();

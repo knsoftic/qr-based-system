@@ -84,7 +84,7 @@
                                 <details class="payout-actions">
                                     <summary class="btn btn--sm btn--primary">Mark paid</summary>
                                     <form method="POST" action="{{ route('admin.payouts.paid', $payout) }}" class="payout-pop"
-                                          onsubmit="return confirm('Confirm you have sent PKR {{ number_format($payout->amount, 2) }} to {{ $payout->account_number }}?')">
+                                          data-confirm="Confirm you have sent PKR {{ number_format($payout->amount, 2) }} to {{ $payout->account_number }}?">
                                         @csrf
                                         <input type="text" name="reference" placeholder="Bank / TID reference (optional)" maxlength="100">
                                         <input type="text" name="admin_note" placeholder="Note (optional)" maxlength="255">

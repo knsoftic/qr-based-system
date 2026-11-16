@@ -43,7 +43,7 @@
                             </td>
                             <td class="text-right">
                                 <form method="POST" action="{{ route('admin.accounts.channels.maintenance') }}" class="inline-form"
-                                      onsubmit="return confirm('{{ $ch['maintenance'] ? 'Resume' : 'Put in maintenance' }} the “{{ $ch['name'] }}” channel?')">
+                                      data-confirm="{{ $ch['maintenance'] ? 'Resume' : 'Put in maintenance' }} the “{{ $ch['name'] }}” channel?">
                                     @csrf
                                     <input type="hidden" name="channel" value="{{ $ch['name'] }}">
                                     <input type="hidden" name="on" value="{{ $ch['maintenance'] ? 0 : 1 }}">

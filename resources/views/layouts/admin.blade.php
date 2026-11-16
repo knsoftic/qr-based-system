@@ -138,6 +138,13 @@
     </div>
 </div>
 <script>
+    // <form data-confirm="..."> asks before submitting. The message is read as
+    // plain text from the attribute, so stored values can never run as script.
+    document.addEventListener('submit', function (e) {
+        var msg = e.target.getAttribute && e.target.getAttribute('data-confirm');
+        if (msg && !window.confirm(msg)) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
+
     document.querySelector('.sidebar-toggle')?.addEventListener('click', function () {
         var mini = document.documentElement.classList.toggle('sidebar-collapsed');
         try { localStorage.setItem('rqSidebar', mini ? 'mini' : 'full'); } catch (e) {}

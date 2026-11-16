@@ -81,7 +81,7 @@
                             <div class="alert alert--warning">This QR expired. Only mark it paid if the money was actually received (late payment).</div>
                         @endif
                         <form method="POST" action="{{ route('admin.transactions.paid', $payment) }}"
-                              onsubmit="return confirm('Confirm that {{ $payment->currency }} {{ number_format($payment->amount, 2) }} was received?')">
+                              data-confirm="Confirm that {{ $payment->currency }} {{ number_format($payment->amount, 2) }} was received?">
                             @csrf
                             <div class="form-row">
                                 <label for="reference">Bank / wallet reference</label>
