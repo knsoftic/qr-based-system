@@ -75,6 +75,7 @@ Route::prefix('merchant')->name('merchant.')->group(function () {
         Route::get('verify', [PortalController::class, 'verifyForm'])->name('verify');
         Route::post('verify/credentials', [PortalController::class, 'verifyCredentials'])->middleware('throttle:merchant-sensitive')->name('verify.credentials');
         Route::post('verify/signature', [PortalController::class, 'verifySignature'])->middleware('throttle:merchant-sensitive')->name('verify.signature');
+        Route::post('verify/callback', [PortalController::class, 'testCallback'])->middleware('throttle:merchant-sensitive')->name('verify.callback');
         Route::post('telegram/connect', [PortalController::class, 'connectTelegram'])->middleware('throttle:merchant-sensitive')->name('telegram.connect');
         Route::post('telegram/disconnect', [PortalController::class, 'disconnectTelegram'])->middleware('throttle:merchant-sensitive')->name('telegram.disconnect');
     });

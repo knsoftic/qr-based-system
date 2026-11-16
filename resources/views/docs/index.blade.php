@@ -165,6 +165,9 @@ GET {{ $baseUrl }}/payouts/{payout_ref}</pre>
 }</pre>
     <p>Verify headers <code>X-Timestamp</code> and <code>X-Signature</code> = hex HMAC-SHA256 of <code>timestamp + "." + raw_body</code> with your API secret.
         Respond with HTTP 2xx. Failed deliveries are retried with exponential backoff. Always treat callbacks idempotently.</p>
+    <p><strong>Sandbox:</strong> in the <a href="{{ route('merchant.login') }}">merchant portal</a> (Verify integration → Test your callback) you can send a signed
+        test callback for a made-up payment to check your handler without moving money. It carries <code>"sandbox": true</code> and the header
+        <code>X-Sandbox: true</code>. Never fulfil an order from a sandbox callback.</p>
 
     <h2>Errors</h2>
     <pre>{ "error": { "code": "validation_error", "message": "...", "fields": { "amount": ["..."] } } }</pre>

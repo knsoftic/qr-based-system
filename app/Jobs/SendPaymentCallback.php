@@ -5,16 +5,15 @@ namespace App\Jobs;
 use App\Models\CallbackDelivery;
 use App\Models\Payment;
 use App\Payments\CallbackDispatcher;
+use App\Payments\CallbackSender;
 use App\Support\UrlGuard;
 use App\Telegram\TelegramNotifier;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * POSTs the payment status to the merchant, signed with the merchant secret:
- *   X-Timestamp: unix time
- *   X-Signature: hex(HMAC-SHA256(secret, timestamp + "." + body))
+ * POSTs the payment status to the merchant, signed with the merchant secret
+ * (see CallbackSender), and records each delivery attempt.
  */
 class SendPaymentCallback
 {
@@ -22,7 +21,7 @@ class SendPaymentCallback
 
     public function __construct(public readonly int $paymentId) {}
 
-    public function handle(CallbackDispatcher $dispatcher): void
+    public function handle(CallbackDispatcher $dispatcher, CallbackSender $sender): void
     {
         $payment = Payment::query()->with('merchant')->find($this->paymentId);
 
@@ -43,39 +42,22 @@ class SendPaymentCallback
             return;
         }
 
-        $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
-        $timestamp = (string) time();
-        $started = microtime(true);
+        $result = $sender->send($url, json_encode($payload, JSON_UNESCAPED_SLASHES), $payment->merchant->api_secret);
 
-        try {
-            $response = Http::timeout(config('gateway.callback_timeout'))
-                ->withOptions(['allow_redirects' => false])
-                ->withHeaders([
-                    'User-Agent' => config('app.name').'/1.0',
-                    'X-Timestamp' => $timestamp,
-                    'X-Signature' => hash_hmac('sha256', $timestamp.'.'.$body, $payment->merchant->api_secret),
-                ])
-                ->withBody($body, 'application/json')
-                ->post($url);
+        $this->record($payment, $url, $payload, $attempt,
+            code: $result['code'],
+            body: $result['body'],
+            error: $result['error'],
+            success: $result['success'],
+            durationMs: $result['duration_ms'],
+        );
 
-            $success = $response->successful();
-
-            $this->record($payment, $url, $payload, $attempt,
-                code: $response->status(),
-                body: mb_substr($response->body(), 0, 2000),
-                success: $success,
-                started: $started,
-            );
-
-            if ($success) {
-                $payment->forceFill(['callback_sent_at' => now()])->save();
-            }
-        } catch (Throwable $e) {
-            $this->record($payment, $url, $payload, $attempt, error: mb_substr($e->getMessage(), 0, 250), started: $started);
+        if ($result['success']) {
+            $payment->forceFill(['callback_sent_at' => now()])->save();
         }
     }
 
-    private function record(Payment $payment, string $url, array $payload, int $attempt, ?int $code = null, ?string $body = null, ?string $error = null, bool $success = false, ?float $started = null): void
+    private function record(Payment $payment, string $url, array $payload, int $attempt, ?int $code = null, ?string $body = null, ?string $error = null, bool $success = false, ?int $durationMs = null): void
     {
         $delivery = CallbackDelivery::query()->create([
             'payment_id' => $payment->id,
@@ -86,7 +68,7 @@ class SendPaymentCallback
             'response_body' => $body,
             'error' => $error,
             'success' => $success,
-            'duration_ms' => $started ? (int) round((microtime(true) - $started) * 1000) : null,
+            'duration_ms' => $durationMs,
         ]);
 
         if (! $success) {

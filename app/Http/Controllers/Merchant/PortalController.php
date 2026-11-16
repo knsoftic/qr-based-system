@@ -8,12 +8,15 @@ use App\Jobs\SendPaymentCallback;
 use App\Models\Merchant;
 use App\Models\Payout;
 use App\Payments\CallbackDispatcher;
+use App\Payments\CallbackSender;
 use App\Payments\Exceptions\GatewayException;
+use App\Payments\FeeCalculator;
 use App\Payments\PayInTester;
 use App\Payments\PaymentService;
 use App\Payments\PayoutService;
 use App\Support\Audit;
 use App\Support\Settings;
+use App\Support\UrlGuard;
 use App\Telegram\LinkService;
 use App\Telegram\TelegramClient;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +24,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -316,6 +320,67 @@ class PortalController extends Controller
 
         return redirect()->to(route('merchant.dashboard').'#telegram')
             ->with('success', 'Telegram disconnected. You will no longer receive notifications there.');
+    }
+
+    /**
+     * Sandbox: send a signed callback to the merchant's server exactly like a
+     * real one ("sandbox": true, header X-Sandbox: true) for a made-up payment.
+     * Nothing is created and no status or balance changes, so the merchant can
+     * test its callback handler without moving money.
+     */
+    public function testCallback(Request $request, CallbackSender $sender, FeeCalculator $fees): RedirectResponse
+    {
+        $merchant = $this->merchant($request);
+        $max = (float) app(Settings::class)->get('payin.max_amount');
+        $back = redirect()->to(route('merchant.verify').'#callback')->withInput();
+
+        $data = $request->validate([
+            'cb_event' => ['required', Rule::in(['paid', 'expired', 'failed'])],
+            'cb_amount' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:'.$max],
+            'cb_order_id' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_\-.:#\/]+$/'],
+            'cb_url' => ['nullable', 'url:http,https', 'max:255'],
+        ]);
+
+        $url = $data['cb_url'] ?? $merchant->callback_url;
+        if (! $url) {
+            return $back->with('error', 'Enter a callback URL (or ask the admin to set your default one).');
+        }
+        if (! UrlGuard::isAllowed($url)) {
+            return $back->with('error', 'The callback URL must be a public http(s) address.');
+        }
+
+        $event = $data['cb_event'];
+        $amount = number_format((float) $data['cb_amount'], 2, '.', '');
+        $fee = $fees->payIn($merchant, $amount);
+        $now = now();
+
+        $payload = [
+            'event' => 'payment.'.$event,
+            'data' => [
+                'payment_id' => 'pay_sandbox_'.Str::lower(Str::random(16)),
+                'transaction_id' => 'TXNSBX'.$now->format('ymdHis').random_int(1000, 9999),
+                'order_id' => $data['cb_order_id'] ?? 'SANDBOX-'.Str::upper(Str::random(6)),
+                'amount' => $amount,
+                'currency' => 'PKR',
+                'fee' => $fee['fee'],
+                'net_amount' => $fee['net'],
+                'status' => $event,
+                'checkout_url' => null,
+                'short_url' => null,
+                'expires_at' => $now->copy()->addMinutes($event === 'expired' ? 0 : 5)->toIso8601String(),
+                'paid_at' => $event === 'paid' ? $now->toIso8601String() : null,
+                'created_at' => $now->copy()->subMinute()->toIso8601String(),
+            ],
+            'sent_at' => $now->toIso8601String(),
+            'sandbox' => true,
+        ];
+        $body = json_encode($payload, JSON_UNESCAPED_SLASHES);
+
+        $result = $sender->send($url, $body, $merchant->api_secret, ['X-Sandbox' => 'true']);
+
+        Audit::log('merchant.sandbox_callback_sent', $merchant, [], ['event' => $event, 'url' => $url, 'code' => $result['code']], byAdmin: false);
+
+        return $back->with('callback_test', ['url' => $url, 'request_body' => $body] + $result);
     }
 
     public function verifyForm(Request $request): View
