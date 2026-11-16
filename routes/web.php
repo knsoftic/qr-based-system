@@ -47,6 +47,8 @@ Route::prefix('merchant')->name('merchant.')->group(function () {
     Route::middleware('merchant.portal')->group(function () {
         Route::post('logout', [MerchantAuthController::class, 'logout'])->name('logout');
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('payments', [PortalController::class, 'payments'])->name('payments');
+        Route::get('payments/export', [PortalController::class, 'exportPayments'])->middleware('throttle:merchant-sensitive')->name('payments.export');
         Route::post('secret/reveal', [PortalController::class, 'revealSecret'])->middleware('throttle:merchant-sensitive')->name('secret.reveal');
         Route::post('secret/rotate', [PortalController::class, 'rotateSecret'])->middleware('throttle:merchant-sensitive')->name('secret.rotate');
         Route::get('test', [PortalController::class, 'testForm'])->name('test');

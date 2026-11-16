@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Merchant;
 use App\Models\Payment;
+use App\Models\PaymentAccount;
 use App\Support\Settings;
 use App\Telegram\LinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -123,10 +124,10 @@ class MerchantPortalTest extends TestCase
             ->assertOk()
             ->assertSee('Available balance')
             ->assertSee('970.00')          // balance = net of paid
-            ->assertSee('Pay-In today')
-            ->assertSee('Pay-Out today')
-            ->assertSee('Completed today')
-            ->assertSee('Failed / expired today');
+            ->assertSee('Pay-In · Today')
+            ->assertSee('Pay-Out · Today')
+            ->assertSee('Completed · Today')
+            ->assertSee('Failed / expired · Today');
     }
 
     private function paymentRow(Merchant $merchant, string $order, string $status, array $extra = []): array
@@ -327,5 +328,81 @@ class MerchantPortalTest extends TestCase
 
         // Different amounts, so only randomness decides: both accounts get used.
         $this->assertEqualsCanonicalizing([$a->id, $b->id], $used->unique()->values()->all());
+    }
+
+    /** Seed $count payments for a merchant directly (no API round trip). */
+    private function seedPayments(Merchant $merchant, int $count, string $status = 'paid', string $prefix = 'ORD'): void
+    {
+        $number = 'PK00DEMO'.str_pad((string) $merchant->id, 16, '0', STR_PAD_LEFT);
+        $account = PaymentAccount::query()->where('name', 'Account '.$number)->first() ?? $this->makeAccount($number);
+        for ($i = 1; $i <= $count; $i++) {
+            $id = $prefix.'-'.$merchant->id.'-'.$i.'-'.uniqid();
+            $p = $merchant->payments()->create([
+                'payment_id' => 'pay_'.$id, 'transaction_id' => 'TXN'.$id, 'payment_account_id' => $account->id,
+                'order_id' => $prefix.'-'.$i, 'amount' => 100, 'currency' => 'PKR', 'fee_amount' => 2, 'net_amount' => 98,
+                'status' => $status, 'qr_payload' => 'x', 'idempotency_key' => 'k-'.$id, 'request_hash' => hash('sha256', $id),
+                'expires_at' => now()->addMinutes(5),
+            ]);
+            if ($status === 'paid') {
+                $p->forceFill(['paid_at' => now()])->save();
+            }
+        }
+    }
+
+    public function test_the_payments_page_lists_every_payment_with_pagination(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        $this->seedPayments($merchant, 30);
+        $this->signIn();
+
+        $this->get(route('merchant.payments'))
+            ->assertOk()
+            ->assertSee('Net received')
+            ->assertSee('page=2', false); // 30 payments -> a second page
+
+        $this->get(route('merchant.payments', ['page' => 2]))->assertOk()->assertSee('ORD-1');
+    }
+
+    public function test_the_payments_page_filters_and_only_shows_own_payments(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        [$other] = $this->makeMerchant(['name' => 'Other Shop']);
+        $this->seedPayments($merchant, 2, 'paid', 'MINE');
+        $this->seedPayments($merchant, 1, 'expired', 'GONE');
+        $this->seedPayments($other, 1, 'paid', 'THEIRS');
+        $this->signIn();
+
+        $this->get(route('merchant.payments'))->assertOk()
+            ->assertSee('MINE-1')->assertSee('GONE-1')->assertDontSee('THEIRS-1');
+
+        $this->get(route('merchant.payments', ['status' => 'expired']))->assertOk()
+            ->assertSee('GONE-1')->assertDontSee('MINE-1');
+
+        $this->get(route('merchant.payments', ['q' => 'MINE-2']))->assertOk()
+            ->assertSee('MINE-2')->assertDontSee('GONE-1');
+    }
+
+    public function test_the_payments_export_downloads_csv(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        $this->seedPayments($merchant, 3);
+        $this->signIn();
+
+        $response = $this->get(route('merchant.payments.export'));
+        $response->assertOk()->assertDownload();
+        $this->assertStringContainsString('ORD-1', $response->streamedContent());
+    }
+
+    public function test_the_dashboard_period_filter_shows_all_time_totals(): void
+    {
+        [$merchant] = $this->portalMerchant();
+        $this->seedPayments($merchant, 4);
+        // Two older payments: outside "today" but inside "all time".
+        $merchant->payments()->limit(2)->get()->each(fn ($p) => $p->forceFill(['created_at' => now()->subDays(10)])->save());
+        $this->signIn();
+
+        $this->get(route('merchant.dashboard'))->assertOk()->assertSee('Orders · Today')->assertSee('View all 4');
+        $this->get(route('merchant.dashboard', ['period' => 'all']))->assertOk()->assertSee('Orders · All time');
+        $this->get(route('merchant.dashboard', ['period' => 'bogus']))->assertOk()->assertSee('Orders · Today');
     }
 }

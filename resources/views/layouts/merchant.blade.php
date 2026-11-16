@@ -14,6 +14,7 @@
     $initials = collect(explode(' ', $merchant->name))->filter()->map(fn ($part) => mb_substr($part, 0, 1))->take(2)->implode('');
     $links = [
         ['merchant.dashboard', 'Dashboard', 'dashboard', request()->routeIs('merchant.dashboard')],
+        ['merchant.payments', 'Payments', 'transactions', request()->routeIs('merchant.payments*')],
         ['merchant.test', 'Test Pay-In', 'zap', request()->routeIs('merchant.test')],
         ['merchant.payouts', 'Withdraw (Pay-Out)', 'payout', request()->routeIs('merchant.payouts')],
         ['merchant.verify', 'Verify integration', 'check', request()->routeIs('merchant.verify')],

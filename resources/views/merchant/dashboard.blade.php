@@ -25,31 +25,37 @@
             </div>
         </div>
         <div class="balance-side">
-            <div><span class="balance-side-label">Pay-In today</span><span class="balance-side-value">PKR {{ number_format($stats['volume'], 2) }}</span></div>
-            <div><span class="balance-side-label">Pay-Out today</span><span class="balance-side-value">PKR {{ number_format($stats['payout_today'], 2) }}</span></div>
-            <div><span class="balance-side-label">Fees today</span><span class="balance-side-value">PKR {{ number_format($stats['fees'], 2) }}</span></div>
+            <div><span class="balance-side-label">Pay-In · {{ $periodLabel }}</span><span class="balance-side-value">PKR {{ number_format($stats['volume'], 2) }}</span></div>
+            <div><span class="balance-side-label">Pay-Out · {{ $periodLabel }}</span><span class="balance-side-value">PKR {{ number_format($stats['payout'], 2) }}</span></div>
+            <div><span class="balance-side-label">Fees · {{ $periodLabel }}</span><span class="balance-side-value">PKR {{ number_format($stats['fees'], 2) }}</span></div>
         </div>
     </div>
 
+    <nav class="tabs" style="margin-top: 1.2rem">
+        @foreach (\App\Http\Controllers\Merchant\PortalController::PERIODS as $key => $label)
+            <a href="{{ route('merchant.dashboard', ['period' => $key]) }}" @class(['active' => $period === $key])>{{ $label }}</a>
+        @endforeach
+    </nav>
+
     <div class="grid grid-4">
         <div class="stat">
-            <div class="stat-label">Orders today</div>
-            <div class="stat-value">{{ $stats['total'] }}</div>
+            <div class="stat-label">Orders · {{ $periodLabel }}</div>
+            <div class="stat-value">{{ number_format($stats['total']) }}</div>
             <div class="stat-note">{{ $stats['success_rate'] }}% success</div>
         </div>
         <div class="stat">
+            <div class="stat-label">Completed · {{ $periodLabel }}</div>
+            <div class="stat-value" style="color: var(--success)">{{ number_format($stats['paid']) }}</div>
+            <div class="stat-note">Net PKR {{ number_format($stats['net'], 2) }}</div>
+        </div>
+        <div class="stat">
             <div class="stat-label">Pending now</div>
-            <div class="stat-value">{{ $stats['pending'] }}</div>
+            <div class="stat-value">{{ number_format($stats['pending']) }}</div>
             <div class="stat-note">Awaiting payment</div>
         </div>
         <div class="stat">
-            <div class="stat-label">Completed today</div>
-            <div class="stat-value" style="color: var(--success)">{{ $stats['paid'] }}</div>
-            <div class="stat-note">Net PKR {{ number_format($stats['net'], 0) }}</div>
-        </div>
-        <div class="stat">
-            <div class="stat-label">Failed / expired today</div>
-            <div class="stat-value" style="color: var(--danger)">{{ $stats['failed'] + $stats['expired'] }}</div>
+            <div class="stat-label">Failed / expired · {{ $periodLabel }}</div>
+            <div class="stat-value" style="color: var(--danger)">{{ number_format($stats['failed'] + $stats['expired']) }}</div>
             <div class="stat-note">{{ $stats['failed'] }} failed · {{ $stats['expired'] }} expired</div>
         </div>
     </div>
@@ -163,10 +169,13 @@ Idempotency-Key: &lt;unique per order attempt&gt;   (POST only)</pre>
     <div class="card">
         <div class="card-head">
             <h2>Recent payments</h2>
+            @if ($paymentCount > 0)
+                <a href="{{ route('merchant.payments') }}" class="btn btn--sm">View all {{ number_format($paymentCount) }} →</a>
+            @endif
         </div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Transaction</th><th>Order</th><th class="num">Amount</th><th>Status</th><th>Created</th></tr></thead>
+                <thead><tr><th>Transaction</th><th>Order</th><th class="num">Amount</th><th class="num">Net</th><th>Status</th><th>Created</th></tr></thead>
                 <tbody>
                 @forelse ($payments as $payment)
                     <tr>
@@ -174,13 +183,14 @@ Idempotency-Key: &lt;unique per order attempt&gt;   (POST only)</pre>
                             <span class="mono">{{ $payment->transaction_id }}</span>
                             <div class="muted mono" style="font-size: .75rem">{{ $payment->payment_id }}</div>
                         </td>
-                        <td class="mono">{{ $payment->order_id }}</td>
-                        <td class="num">{{ $payment->currency }} {{ number_format($payment->amount, 2) }}</td>
+                        <td class="mono nowrap">{{ $payment->order_id }}</td>
+                        <td class="num nowrap">{{ $payment->currency }} {{ number_format($payment->amount, 2) }}</td>
+                        <td class="num nowrap">{{ number_format($payment->net_amount, 2) }}</td>
                         <td><span class="badge badge--{{ $payment->status->value }}">{{ $payment->status->label() }}</span></td>
-                        <td class="nowrap">{{ $payment->created_at->timezone('Asia/Karachi')->format('d M, H:i:s') }}</td>
+                        <td class="nowrap">{{ $payment->created_at->timezone('Asia/Karachi')->format('d M, h:i A') }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="empty">No payments yet. <a href="{{ route('merchant.test') }}">Run a test Pay-In</a>.</td></tr>
+                    <tr><td colspan="6" class="empty">No payments yet. <a href="{{ route('merchant.test') }}">Run a test Pay-In</a>.</td></tr>
                 @endforelse
                 </tbody>
             </table>
