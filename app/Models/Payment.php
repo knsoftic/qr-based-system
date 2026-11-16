@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PaymentStatus;
+use App\Support\Settings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -67,6 +68,12 @@ class Payment extends Model
         return $this->belongsTo(PaymentAccount::class, 'payment_account_id')->withTrashed();
     }
 
+    /** The payment link this payment came through, if any. */
+    public function paymentLink(): BelongsTo
+    {
+        return $this->belongsTo(PaymentLink::class);
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(PaymentEvent::class)->orderBy('id');
@@ -122,7 +129,7 @@ class Payment extends Model
             return null;
         }
 
-        $base = (string) app(\App\Support\Settings::class)->get('checkout.short_base_url');
+        $base = (string) app(Settings::class)->get('checkout.short_base_url');
         $base = $base !== '' ? rtrim($base, '/') : rtrim(url('/'), '/');
 
         return $base.'/s/'.$this->slug;

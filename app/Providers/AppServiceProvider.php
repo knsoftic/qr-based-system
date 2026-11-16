@@ -59,6 +59,9 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(90)->by('checkout:'.$request->ip()));
 
+        // Each "Pay" on a payment link creates a real payment request.
+        RateLimiter::for('paylink', fn (Request $request) => Limit::perMinute(10)->by('paylink:'.$request->ip()));
+
         RateLimiter::for('merchant-login', fn (Request $request) => [
             Limit::perMinute(5)->by('mlogin:'.strtolower((string) $request->input('username')).'|'.$request->ip()),
             Limit::perMinute(20)->by('mlogin-ip:'.$request->ip()),

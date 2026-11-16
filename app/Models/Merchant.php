@@ -117,6 +117,11 @@ class Merchant extends Authenticatable
         return $this->hasMany(Payout::class);
     }
 
+    public function paymentLinks(): HasMany
+    {
+        return $this->hasMany(PaymentLink::class);
+    }
+
     /** Net earnings from paid payments (after our fees). */
     public function earnedNet(): float
     {

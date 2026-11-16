@@ -20,7 +20,9 @@ use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DocsController;
 use App\Http\Controllers\Merchant\AuthController as MerchantAuthController;
+use App\Http\Controllers\Merchant\PaymentLinkController as MerchantPaymentLinkController;
 use App\Http\Controllers\Merchant\PortalController;
+use App\Http\Controllers\PaymentLinkController;
 use Illuminate\Support\Facades\Route;
 
 // The public front door is the merchant login (signed-in merchants land on their dashboard).
@@ -36,7 +38,12 @@ Route::middleware('throttle:checkout')->group(function () {
     Route::get('/s/{key}', [CheckoutController::class, 'show'])->name('checkout.short');
     Route::get('/s/{key}/status', [CheckoutController::class, 'status'])->name('checkout.short.status');
     Route::post('/s/{key}/phone', [CheckoutController::class, 'savePhone'])->name('checkout.short.phone');
+
+    // Reusable payment links.
+    Route::get('/p/{code}', [PaymentLinkController::class, 'show'])->name('paylink.show');
 });
+
+Route::post('/p/{code}', [PaymentLinkController::class, 'pay'])->middleware('throttle:paylink')->name('paylink.pay');
 
 Route::prefix('merchant')->name('merchant.')->group(function () {
     Route::middleware('guest:merchant')->group(function () {
@@ -51,6 +58,10 @@ Route::prefix('merchant')->name('merchant.')->group(function () {
         Route::get('payments/export', [PortalController::class, 'exportPayments'])->middleware('throttle:merchant-sensitive')->name('payments.export');
         Route::get('payments/{paymentId}', [PortalController::class, 'showPayment'])->name('payments.show');
         Route::post('payments/{paymentId}/callback', [PortalController::class, 'resendCallback'])->middleware('throttle:merchant-sensitive')->name('payments.callback');
+        Route::get('links', [MerchantPaymentLinkController::class, 'index'])->name('links');
+        Route::post('links', [MerchantPaymentLinkController::class, 'store'])->middleware('throttle:merchant-sensitive')->name('links.store');
+        Route::post('links/{id}/toggle', [MerchantPaymentLinkController::class, 'toggle'])->whereNumber('id')->name('links.toggle');
+        Route::get('links/{id}/qr', [MerchantPaymentLinkController::class, 'qr'])->whereNumber('id')->name('links.qr');
         Route::get('statement', [PortalController::class, 'statement'])->name('statement');
         Route::get('statement/export', [PortalController::class, 'exportStatement'])->middleware('throttle:merchant-sensitive')->name('statement.export');
         Route::get('account', [PortalController::class, 'account'])->name('account');

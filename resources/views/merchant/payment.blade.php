@@ -34,6 +34,12 @@
                     <dt>Order ID</dt><dd class="mono">{{ $payment->order_id }}</dd>
                     <dt>Transaction ID</dt><dd class="mono">{{ $payment->transaction_id }}</dd>
                     <dt>Payment ID</dt><dd class="mono">{{ $payment->payment_id }}</dd>
+                    @if ($payment->paymentLink)
+                        <dt>Payment link</dt><dd><a href="{{ route('merchant.links') }}">{{ $payment->paymentLink->title }}</a></dd>
+                    @endif
+                    @if ($payment->customer_name)
+                        <dt>Customer name</dt><dd>{{ $payment->customer_name }}</dd>
+                    @endif
                     @if ($payment->description)
                         <dt>Description</dt><dd>{{ $payment->description }}</dd>
                     @endif
