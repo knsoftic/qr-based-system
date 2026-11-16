@@ -79,6 +79,7 @@ class PortalController extends Controller
             'balance' => $merchant->balance(),
             'period' => $period,
             'periodLabel' => self::PERIODS[$period],
+            'chart' => $this->chartData($merchant, $period),
             'stats' => [
                 'total' => $total,
                 'pending' => $merchant->payments()->where('status', 'pending')->count(), // right now
@@ -184,6 +185,99 @@ class PortalController extends Controller
                     }
                 });
             });
+    }
+
+    /**
+     * Dashboard chart series for a period, in Pakistan time: hourly for
+     * today, daily for 7 / 30 days, monthly for all time (at most 24 months).
+     * Each bucket: orders, paid, paid volume and success rate.
+     *
+     * @return array{unit: string, buckets: list<array{key: string, short: string, long: string, orders: int, paid: int, volume: float, rate: ?float, future: bool}>, ticks: list<float>, top: float, orders: int, paid: int, volume: float}
+     */
+    private function chartData(Merchant $merchant, string $period): array
+    {
+        $tz = 'Asia/Karachi';
+        $now = now($tz);
+
+        if ($period === 'all') {
+            $first = $merchant->payments()->min('created_at');
+            $start = $first ? Carbon::parse($first, config('app.timezone'))->setTimezone($tz)->startOfMonth() : $now->copy()->startOfMonth();
+            $start = $start->max($now->copy()->startOfMonth()->subMonthsNoOverflow(23));
+            [$unit, $step, $fmt, $short, $long] = ['month', 'addMonthNoOverflow', 'Y-m', "M 'y", 'F Y'];
+        } else {
+            [$unit, $start] = match ($period) {
+                '7d' => ['day', $now->copy()->subDays(6)->startOfDay()],
+                '30d' => ['day', $now->copy()->subDays(29)->startOfDay()],
+                default => ['hour', $now->copy()->startOfDay()],
+            };
+            [$step, $fmt, $short, $long] = $unit === 'hour'
+                ? ['addHour', 'Y-m-d H', 'g A', 'd M, g A']
+                : ['addDay', 'Y-m-d', 'j M', 'D, j M'];
+        }
+
+        // Today always spans the whole day (hours still to come stay empty),
+        // so the axis does not shrink to a single bar just after midnight.
+        $end = $unit === 'hour' ? $now->copy()->endOfDay() : $now;
+        $buckets = [];
+        for ($t = $start->copy(); $t->lte($end); $t = $t->{$step}()) {
+            $buckets[$t->format($fmt)] = [
+                'key' => $t->format($fmt), 'short' => $t->format($short), 'long' => $t->format($long),
+                'orders' => 0, 'paid' => 0, 'volume' => 0.0, 'rate' => null, 'future' => $t->gt($now),
+            ];
+        }
+
+        $since = $start->copy()->setTimezone(config('app.timezone'));
+        foreach ($merchant->payments()->where('created_at', '>=', $since)->select(['id', 'created_at', 'status', 'amount'])->cursor() as $p) {
+            $key = $p->created_at->timezone($tz)->format($fmt);
+            if (! isset($buckets[$key])) {
+                continue;
+            }
+            $buckets[$key]['orders']++;
+            if ($p->status->value === 'paid') {
+                $buckets[$key]['paid']++;
+                $buckets[$key]['volume'] += (float) $p->amount;
+            }
+        }
+
+        foreach ($buckets as &$b) {
+            $b['volume'] = round($b['volume'], 2);
+            $b['rate'] = $b['orders'] ? round($b['paid'] / $b['orders'] * 100, 1) : null;
+        }
+        unset($b);
+        $buckets = array_values($buckets);
+
+        // Clean y-axis ticks for the volume chart (0 … top in ~3 steps).
+        $max = $buckets ? max(array_column($buckets, 'volume')) : 0.0;
+        $tick = $this->niceStep($max / 3);
+        $top = $max > 0 ? $tick * ceil($max / $tick) : $tick;
+
+        return [
+            'unit' => $unit,
+            'buckets' => $buckets,
+            'ticks' => range(0, $top, $tick),
+            'top' => (float) $top,
+            'orders' => array_sum(array_column($buckets, 'orders')),
+            'paid' => array_sum(array_column($buckets, 'paid')),
+            'volume' => round(array_sum(array_column($buckets, 'volume')), 2),
+        ];
+    }
+
+    /** 1 / 2 / 2.5 / 5 × 10ⁿ step at or above $x. */
+    private function niceStep(float $x): float
+    {
+        if ($x <= 0) {
+            return 1.0;
+        }
+        $pow = 10 ** floor(log10($x));
+        $f = $x / $pow;
+
+        return (float) ($pow * match (true) {
+            $f <= 1 => 1,
+            $f <= 2 => 2,
+            $f <= 2.5 => 2.5,
+            $f <= 5 => 5,
+            default => 10,
+        });
     }
 
     /** Start of a dashboard period in the app timezone; null = all time. */

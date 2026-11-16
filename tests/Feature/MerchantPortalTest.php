@@ -8,6 +8,7 @@ use App\Models\PaymentAccount;
 use App\Support\Settings;
 use App\Telegram\LinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -497,5 +498,66 @@ class MerchantPortalTest extends TestCase
         $this->assertStringContainsString('Payment received', $csv);
         $this->assertStringContainsString('Withdrawal returned', $csv);
         $this->assertStringContainsString('"Closing balance",,,,,'.number_format($merchant->fresh()->availableBalance(), 2, '.', ''), $csv);
+    }
+
+    public function test_dashboard_charts_bucket_payments_in_pakistan_time(): void
+    {
+        // 10:30 UTC = 3:30 PM in Pakistan.
+        $this->travelTo(Carbon::parse('2026-11-17 10:30:00', 'UTC'));
+        [$merchant] = $this->portalMerchant();
+        $at = function (string $order, string $status, int $amount, $createdAt) use ($merchant) {
+            $merchant->payments()->create($this->paymentRow($merchant, $order, $status, ['amount' => $amount, 'net_amount' => $amount]))
+                ->forceFill(['created_at' => $createdAt])->save();
+        };
+        $at('NOW-PAID', 'paid', 1000, now());
+        $at('NOW-EXP', 'expired', 1000, now());
+        $at('EARLY', 'paid', 300, Carbon::parse('2026-11-16 20:00:00', 'UTC')); // 1 AM today in Pakistan
+        $at('OLDER', 'paid', 500, now()->subDays(3));
+        $at('OLDEST', 'paid', 2000, now()->subDays(60));
+        $this->signIn();
+
+        // Today: hourly, midnight to 11 PM.
+        $today = $this->get(route('merchant.dashboard'))->assertOk()
+            ->assertSee('Paid volume')->assertSee('Success rate')->assertSee('Show as table')
+            ->viewData('chart');
+        $this->assertSame('hour', $today['unit']);
+        $this->assertCount(24, $today['buckets']); // the whole day; hours after 3 PM are still to come
+        $this->assertFalse($today['buckets'][15]['future']);
+        $this->assertTrue($today['buckets'][16]['future']);
+        $this->assertSame([1, 1, 300.0, 100.0], $this->bucketNumbers($today['buckets'][1]));
+        $this->assertSame([2, 1, 1000.0, 50.0], $this->bucketNumbers($today['buckets'][15]));
+        $this->assertNull($today['buckets'][0]['rate']);
+        $this->assertSame([3, 2, 1300.0], [$today['orders'], $today['paid'], $today['volume']]);
+
+        // Last 7 days: one bucket per day, today last.
+        $week = $this->get(route('merchant.dashboard', ['period' => '7d']))->assertOk()->viewData('chart');
+        $this->assertSame('day', $week['unit']);
+        $this->assertCount(7, $week['buckets']);
+        $this->assertSame('2026-11-14', $week['buckets'][3]['key']);
+        $this->assertSame(500.0, $week['buckets'][3]['volume']);
+        $this->assertSame([3, 2, 1300.0, 66.7], $this->bucketNumbers($week['buckets'][6]));
+
+        // All time: monthly from the first payment, with clean y ticks.
+        $all = $this->get(route('merchant.dashboard', ['period' => 'all']))->assertOk()->viewData('chart');
+        $this->assertSame('month', $all['unit']);
+        $this->assertSame(['2026-09', '2026-10', '2026-11'], array_column($all['buckets'], 'key'));
+        $this->assertSame([2000.0, 0.0, 1800.0], array_column($all['buckets'], 'volume'));
+        $this->assertEquals([0, 1000, 2000], $all['ticks']);
+        $this->assertSame(5, $all['orders']);
+    }
+
+    public function test_dashboard_charts_show_an_empty_state_without_payments(): void
+    {
+        $this->portalMerchant();
+        $this->signIn();
+
+        $this->get(route('merchant.dashboard'))->assertOk()
+            ->assertSee('nothing to chart')
+            ->assertDontSee('Show as table');
+    }
+
+    private function bucketNumbers(array $bucket): array
+    {
+        return [$bucket['orders'], $bucket['paid'], $bucket['volume'], $bucket['rate']];
     }
 }

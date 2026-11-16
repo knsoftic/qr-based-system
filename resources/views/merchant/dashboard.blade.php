@@ -60,6 +60,8 @@
         </div>
     </div>
 
+    @include('merchant.partials.charts')
+
     <div class="grid grid-2" style="margin-top: 1.4rem">
         <div class="card" id="credentials">
             <div class="card-head"><h2>API credentials</h2></div>
